@@ -25,6 +25,9 @@ def create_app():
     os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'participants'), exist_ok=True)
     os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'logos'), exist_ok=True)
     
+    # Import models here to avoid circular imports
+    from app.models import User
+    
     # Register blueprints
     from app.routes.auth import auth_bp
     from app.routes.draws import draws_bp
@@ -35,9 +38,5 @@ def create_app():
     app.register_blueprint(draws_bp)
     app.register_blueprint(participants_bp)
     app.register_blueprint(admin_bp)
-    
-    # Create tables
-    with app.app_context():
-        db.create_all()
     
     return app
