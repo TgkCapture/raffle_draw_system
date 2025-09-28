@@ -1,3 +1,4 @@
+<!-- app/templates/settings.html -->
 {% extends "base.html" %}
 
 {% block title %}System Settings{% endblock %}
@@ -38,11 +39,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-    document.getElementById('system-settings').addEventListener('submit', function(e) {
-        e.preventDefault();
-        alert('Settings saved successfully!');
-        // In a real implementation, this would send to the server
-    });
-</script>
+<script src="{{ url_for('static', filename='js/settings.js') }}"></script>
 {% endblock %}

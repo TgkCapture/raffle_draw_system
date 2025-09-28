@@ -1,3 +1,4 @@
+<!-- app/templates/management.html -->
 {% extends "base.html" %}
 
 {% block title %}Raffle Management{% endblock %}
@@ -87,7 +88,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-    // Management JavaScript will be loaded from static/js/management.js
-</script>
+<script src="{{ url_for('static', filename='js/management.js') }}"></script>
 {% endblock %}

@@ -1,3 +1,4 @@
+<!-- app/templates/particiants.html -->
 {% extends "base.html" %}
 
 {% block title %}Participants Management{% endblock %}
@@ -117,81 +118,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-    // Tab switching
-    document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', function() {
-            const subtabId = this.getAttribute('data-subtab');
-            
-            // Update active tab
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            this.classList.add('active');
-            
-            // Show corresponding content
-            document.querySelectorAll('.subtab-content').forEach(content => {
-                content.classList.remove('active');
-                if (content.id === subtabId) {
-                    content.classList.add('active');
-                }
-            });
-        });
-    });
-    
-    // Show/hide token field based on auth method
-    document.getElementById('auth-method').addEventListener('change', function() {
-        const tokenField = document.getElementById('token-field');
-        tokenField.style.display = this.value === 'none' ? 'none' : 'block';
-    });
-    
-    // Upload form
-    document.getElementById('upload-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData();
-        formData.append('file', document.getElementById('participant-file').files[0]);
-        formData.append('draw_id', document.getElementById('draw-select').value);
-        
-        fetch('/api/participants/upload', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            alert(data.message);
-            if (data.success) {
-                document.getElementById('upload-form').reset();
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error uploading file');
-        });
-    });
-    
-    // View participants
-    document.getElementById('view-draw-select').addEventListener('change', function() {
-        const drawId = this.value;
-        if (!drawId) return;
-        
-        fetch(`/api/participants/${drawId}`)
-            .then(response => response.json())
-            .then(participants => {
-                const table = document.getElementById('participants-table');
-                
-                if (participants.length === 0) {
-                    table.innerHTML = '<tr><td colspan="4" class="text-center">No participants found</td></tr>';
-                    return;
-                }
-                
-                table.innerHTML = participants.map(p => `
-                    <tr>
-                        <td>${p.phone_number}</td>
-                        <td>${new Date(p.added_at).toLocaleDateString()}</td>
-                        <td>${p.source}</td>
-                        <td><span class="status-badge ${p.is_verified ? 'status-active' : 'status-inactive'}">${p.is_verified ? 'Verified' : 'Pending'}</span></td>
-                    </tr>
-                `).join('');
-            });
-    });
-</script>
+<script src="{{ url_for('static', filename='js/participants.js') }}"></script>
 {% endblock %}

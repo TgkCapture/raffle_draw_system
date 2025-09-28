@@ -1,3 +1,4 @@
+<!-- app/templates/admin.html -->
 {% extends "base.html" %}
 
 {% block title %}Draw Management{% endblock %}
@@ -80,59 +81,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-    document.getElementById('create-draw-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const formData = {
-            name: document.getElementById('draw-name').value,
-            prize_amount: parseFloat(document.getElementById('draw-prize').value),
-            number_of_winners: parseInt(document.getElementById('draw-winners').value),
-            scheduled_for: document.getElementById('draw-date').value,
-            description: document.getElementById('draw-description').value
-        };
-        
-        fetch('/admin/draws', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(formData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Draw created successfully!');
-                location.reload();
-            } else {
-                alert('Error creating draw: ' + data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error creating draw');
-        });
-    });
-    
-    function deleteDraw(drawId) {
-        if (confirm('Are you sure you want to delete this draw?')) {
-            fetch(`/admin/draws/${drawId}`, {
-                method: 'DELETE'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Draw deleted successfully!');
-                    location.reload();
-                } else {
-                    alert('Error deleting draw');
-                }
-            });
-        }
-    }
-    
-    function editDraw(drawId) {
-        alert('Edit functionality for draw ' + drawId + ' would be implemented here');
-    }
-</script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
 {% endblock %}
