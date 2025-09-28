@@ -6,11 +6,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Raffle Draw - TV Display</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tv_display.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="tv-container">
         <div class="logo">
-            <h1>🎉 RAFFLE MASTERS MW</h1>
+            <img src="{{ url_for('static', filename='images/mbc-white-logo.png') }}" alt="MBC Logo">
         </div>
         
         <h2 class="draw-title" id="tv-draw-name">{% if current_draw %}{{ current_draw.name.upper() }}{% else %}READY FOR DRAW{% endif %}</h2>
