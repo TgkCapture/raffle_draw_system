@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Draw Management{% endblock %}
+
+{% block page_title %}Draw Management{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Create New Draw</h3>
+    </div>
+    <div class="card-body">
+        <form id="create-draw-form">
+            <div class="form-group">
+                <label class="form-label">Draw Name</label>
+                <input type="text" class="form-control" id="draw-name" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Prize Amount (MWK)</label>
+                <input type="number" class="form-control" id="draw-prize" min="0" step="1000" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Number of Winners</label>
+                <input type="number" class="form-control" id="draw-winners" min="1" value="1" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Draw Date & Time</label>
+                <input type="datetime-local" class="form-control" id="draw-date">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" id="draw-description" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Create Draw</button>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Active Draws</h3>
+    </div>
+    <div class="card-body">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Prize (MWK)</th>
+                    <th>Winners</th>
+                    <th>Participants</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="draws-table">
+                {% for draw in draws %}
+                <tr>
+                    <td>{{ draw.name }}</td>
+                    <td>{{ "{:,.0f}".format(draw.prize_amount) }}</td>
+                    <td>{{ draw.number_of_winners }}</td>
+                    <td>{{ draw.participants|length }}</td>
+                    <td>
+                        <span class="status-badge 
+                            {% if draw.status == 'active' %}status-active
+                            {% elif draw.status == 'completed' %}status-inactive
+                            {% else %}status-inactive{% endif %}">
+                            {{ draw.status|title }}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-primary btn-sm" onclick="editDraw({{ draw.id }})">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteDraw({{ draw.id }})">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('create-draw-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            name: document.getElementById('draw-name').value,
+            prize_amount: parseFloat(document.getElementById('draw-prize').value),
+            number_of_winners: parseInt(document.getElementById('draw-winners').value),
+            scheduled_for: document.getElementById('draw-date').value,
+            description: document.getElementById('draw-description').value
+        };
+        
+        fetch('/admin/draws', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Draw created successfully!');
+                location.reload();
+            } else {
+                alert('Error creating draw: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error creating draw');
+        });
+    });
+    
+    function deleteDraw(drawId) {
+        if (confirm('Are you sure you want to delete this draw?')) {
+            fetch(`/admin/draws/${drawId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Draw deleted successfully!');
+                    location.reload();
+                } else {
+                    alert('Error deleting draw');
+                }
+            });
+        }
+    }
+    
+    function editDraw(drawId) {
+        alert('Edit functionality for draw ' + drawId + ' would be implemented here');
+    }
+</script>
+{% endblock %}

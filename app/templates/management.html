@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Raffle Management{% endblock %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Current Draw Status</h3>
+    </div>
+    <div class="card-body">
+        <div class="draw-status">
+            <p><strong>Current Draw:</strong> <span id="current-draw-name">No active draw</span></p>
+            <p><strong>Status:</strong> <span class="status-badge status-inactive" id="draw-status">Not Started</span></p>
+            <p><strong>Participants:</strong> <span id="participant-count">0</span></p>
+            <p><strong>Prize Amount:</strong> <span id="prize-amount">MWK 0</span></p>
+            <p><strong>Winners to draw:</strong> <span id="winners-info">0</span></p>
+            
+            <div class="draw-controls mt-4">
+                <select id="draw-select" class="form-control mb-3">
+                    <option value="">Select a draw...</option>
+                    {% for draw in draws %}
+                    <option value="{{ draw.id }}" data-prize="{{ draw.prize_amount }}" data-winners="{{ draw.number_of_winners }}">
+                        {{ draw.name }} - MWK {{ "{:,.0f}".format(draw.prize_amount) }}
+                    </option>
+                    {% endfor %}
+                </select>
+                
+                <button class="btn btn-success" id="start-draw">Start Draw</button>
+                <button class="btn btn-danger" id="stop-draw" disabled>Stop Draw</button>
+                <button class="btn btn-primary" id="draw-winner" disabled>Draw Winner</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Recent Winners</h3>
+    </div>
+    <div class="card-body">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Winner</th>
+                    <th>Prize</th>
+                    <th>Draw</th>
+                    <th>Position</th>
+                </tr>
+            </thead>
+            <tbody id="winners-table">
+                <tr>
+                    <td colspan="5" class="text-center">No winners yet</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Draw Statistics</h3>
+    </div>
+    <div class="card-body">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h4>Total Draws</h4>
+                <p class="stat-number" id="total-draws">0</p>
+            </div>
+            <div class="stat-card">
+                <h4>Completed Draws</h4>
+                <p class="stat-number" id="completed-draws">0</p>
+            </div>
+            <div class="stat-card">
+                <h4>Total Winners</h4>
+                <p class="stat-number" id="total-winners">0</p>
+            </div>
+            <div class="stat-card">
+                <h4>Total Prizes</h4>
+                <p class="stat-number" id="total-prizes">MWK 0</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Management JavaScript will be loaded from static/js/management.js
+</script>
+{% endblock %}

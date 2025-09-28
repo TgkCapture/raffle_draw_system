@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}Participants Management{% endblock %}
+
+{% block page_title %}Participants Management{% endblock %}
+
+{% block content %}
+<div class="tabs">
+    <div class="tab active" data-subtab="upload">Upload Participants</div>
+    <div class="tab" data-subtab="api">API Configuration</div>
+    <div class="tab" data-subtab="view">View Participants</div>
+</div>
+
+<div class="subtab-content active" id="upload">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Upload Participants (CSV/Excel)</h3>
+        </div>
+        <div class="card-body">
+            <form id="upload-form">
+                <div class="form-group">
+                    <label class="form-label">Select File</label>
+                    <input type="file" class="form-control" id="participant-file" accept=".csv,.xlsx,.xls" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Select Draw</label>
+                    <select class="form-control" id="draw-select" required>
+                        <option value="">Select a draw...</option>
+                        {% for draw in draws %}
+                        <option value="{{ draw.id }}">{{ draw.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Upload</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="subtab-content" id="api">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">API Endpoint Configuration</h3>
+        </div>
+        <div class="card-body">
+            <form id="api-config-form">
+                <div class="form-group">
+                    <label class="form-label">API Endpoint URL</label>
+                    <input type="url" class="form-control" id="api-endpoint" 
+                           value="{{ api_config.endpoint_url if api_config else '' }}" 
+                           placeholder="https://api.example.com/participants">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Authentication Method</label>
+                    <select class="form-control" id="auth-method">
+                        <option value="none" {% if api_config and api_config.auth_method == 'none' %}selected{% endif %}>None</option>
+                        <option value="bearer" {% if api_config and api_config.auth_method == 'bearer' %}selected{% endif %}>Bearer Token</option>
+                        <option value="api-key" {% if api_config and api_config.auth_method == 'api-key' %}selected{% endif %}>API Key</option>
+                    </select>
+                </div>
+                <div class="form-group" id="token-field" style="display: {% if api_config and api_config.auth_method != 'none' %}block{% else %}none{% endif %};">
+                    <label class="form-label">Token/API Key</label>
+                    <input type="password" class="form-control" id="api-token" 
+                           value="{{ api_config.api_key if api_config else '' }}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Refresh Interval (minutes)</label>
+                    <input type="number" class="form-control" id="refresh-interval" 
+                           value="{{ api_config.refresh_interval if api_config else 5 }}" min="1">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="api-active" {% if api_config and api_config.is_active %}checked{% endif %}>
+                        Enable API Sync
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Configuration</button>
+                <button type="button" class="btn btn-success" id="test-api">Test Connection</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="subtab-content" id="view">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Participants List</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label class="form-label">Select Draw to View Participants</label>
+                <select class="form-control" id="view-draw-select">
+                    <option value="">Select a draw...</option>
+                    {% for draw in draws %}
+                    <option value="{{ draw.id }}">{{ draw.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Phone Number</th>
+                        <th>Date Added</th>
+                        <th>Source</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="participants-table">
+                    <tr>
+                        <td colspan="4" class="text-center">Select a draw to view participants</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            const subtabId = this.getAttribute('data-subtab');
+            
+            // Update active tab
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Show corresponding content
+            document.querySelectorAll('.subtab-content').forEach(content => {
+                content.classList.remove('active');
+                if (content.id === subtabId) {
+                    content.classList.add('active');
+                }
+            });
+        });
+    });
+    
+    // Show/hide token field based on auth method
+    document.getElementById('auth-method').addEventListener('change', function() {
+        const tokenField = document.getElementById('token-field');
+        tokenField.style.display = this.value === 'none' ? 'none' : 'block';
+    });
+    
+    // Upload form
+    document.getElementById('upload-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        formData.append('file', document.getElementById('participant-file').files[0]);
+        formData.append('draw_id', document.getElementById('draw-select').value);
+        
+        fetch('/api/participants/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            if (data.success) {
+                document.getElementById('upload-form').reset();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error uploading file');
+        });
+    });
+    
+    // View participants
+    document.getElementById('view-draw-select').addEventListener('change', function() {
+        const drawId = this.value;
+        if (!drawId) return;
+        
+        fetch(`/api/participants/${drawId}`)
+            .then(response => response.json())
+            .then(participants => {
+                const table = document.getElementById('participants-table');
+                
+                if (participants.length === 0) {
+                    table.innerHTML = '<tr><td colspan="4" class="text-center">No participants found</td></tr>';
+                    return;
+                }
+                
+                table.innerHTML = participants.map(p => `
+                    <tr>
+                        <td>${p.phone_number}</td>
+                        <td>${new Date(p.added_at).toLocaleDateString()}</td>
+                        <td>${p.source}</td>
+                        <td><span class="status-badge ${p.is_verified ? 'status-active' : 'status-inactive'}">${p.is_verified ? 'Verified' : 'Pending'}</span></td>
+                    </tr>
+                `).join('');
+            });
+    });
+</script>
+{% endblock %}
