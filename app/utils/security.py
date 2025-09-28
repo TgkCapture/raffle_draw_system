@@ -30,16 +30,25 @@ def audit_log(action):
             
             # Log the action
             try:
+                log_details = {
+                    'endpoint': request.endpoint,
+                    'method': request.method,
+                    'args': dict(request.args)
+                }
+                
+                # Add form data if present
+                if request.form:
+                    log_details['form'] = dict(request.form)
+                
+                # Add JSON data if present
+                json_data = request.get_json(silent=True)
+                if json_data:
+                    log_details['json'] = json_data
+                
                 log = AuditLog(
                     user_id=current_user.id if current_user.is_authenticated else None,
                     action=action,
-                    details=json.dumps({
-                        'endpoint': request.endpoint,
-                        'method': request.method,
-                        'args': dict(request.args),
-                        'form': dict(request.form) if request.form else None,
-                        'json': request.get_json(silent=True)
-                    }),
+                    details=json.dumps(log_details),
                     ip_address=request.remote_addr
                 )
                 db.session.add(log)
