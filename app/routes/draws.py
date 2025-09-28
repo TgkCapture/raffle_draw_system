@@ -24,13 +24,26 @@ def get_draws():
         'currency': draw.currency,
         'number_of_winners': draw.number_of_winners,
         'status': draw.status,
-        'participant_count': len(draw.participants),
-        'created_at': draw.created_at.isoformat()
+        'participant_count': Participant.query.filter_by(draw_id=draw.id, is_verified=True).count(),
+        'created_at': draw.created_at.isoformat() if draw.created_at else None
     } for draw in draws])
+
+@draws_bp.route('/api/draws/<int:draw_id>')
+@login_required
+def get_draw(draw_id):
+    draw = Draw.query.get_or_404(draw_id)
+    return jsonify({
+        'id': draw.id,
+        'name': draw.name,
+        'prize_amount': draw.prize_amount,
+        'currency': draw.currency,
+        'number_of_winners': draw.number_of_winners,
+        'status': draw.status
+    })
 
 @draws_bp.route('/api/draws', methods=['POST'])
 @login_required
-@audit_log
+@audit_log('Create draw')
 def create_draw():
     data = request.get_json()
     
@@ -49,22 +62,22 @@ def create_draw():
 
 @draws_bp.route('/api/draws/<int:draw_id>/start', methods=['POST'])
 @login_required
-@audit_log
+@audit_log('Start draw')
 def start_draw(draw_id):
     success, message = draw_engine.start_draw(draw_id)
     return jsonify({'success': success, 'message': message})
 
 @draws_bp.route('/api/draws/stop', methods=['POST'])
 @login_required
-@audit_log
+@audit_log('Stop draw')
 def stop_draw():
     success, message = draw_engine.stop_draw()
     return jsonify({'success': success, 'message': message})
 
 @draws_bp.route('/api/draws/draw-winner', methods=['POST'])
 @login_required
-@audit_log
-def draw_winner():
+@audit_log('Draw winner')
+def draw_winner_route():
     if not draw_engine.is_running:
         return jsonify({'success': False, 'message': 'No active draw'})
     
@@ -90,6 +103,18 @@ def get_animation():
     
     sequence = draw_engine.get_animation_sequence()
     return jsonify({'success': True, 'sequence': sequence})
+
+@draws_bp.route('/api/winners')
+@login_required
+def get_winners():
+    winners = Winner.query.join(Participant).join(Draw).order_by(Winner.won_at.desc()).limit(10).all()
+    return jsonify([{
+        'phone_number': winner.participant.phone_number,
+        'prize_amount': winner.draw.prize_amount,
+        'draw_name': winner.draw.name,
+        'position': winner.position,
+        'won_at': winner.won_at.isoformat() if winner.won_at else None
+    } for winner in winners])
 
 @draws_bp.route('/tv')
 def tv_display():
