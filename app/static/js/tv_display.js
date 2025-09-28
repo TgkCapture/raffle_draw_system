@@ -31,7 +31,7 @@ class RaffleDrawTV {
             const activeDraw = draws.find(d => d.status === 'active' || d.status === 'draft');
             
             if (!activeDraw) {
-                alert('No available draws to start');
+                this.showNotification('No available draws to start', 'error');
                 return;
             }
             
@@ -50,12 +50,13 @@ class RaffleDrawTV {
                 this.totalWinners = activeDraw.number_of_winners;
                 this.updateUIForDrawing();
                 this.updateDrawInfo();
+                this.showNotification('Draw started successfully!', 'success');
             } else {
-                alert('Error: ' + data.message);
+                this.showNotification('Error: ' + data.message, 'error');
             }
         } catch (error) {
             console.error('Error starting draw:', error);
-            alert('Error starting draw');
+            this.showNotification('Error starting draw', 'error');
         }
     }
     
