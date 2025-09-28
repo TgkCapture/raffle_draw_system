@@ -1,3 +1,4 @@
+// app/static/js/management.js
 class RaffleManagement {
     constructor() {
         this.currentDraw = null;
@@ -11,9 +12,9 @@ class RaffleManagement {
     
     initializeEventListeners() {
         // Draw control buttons
-        document.getElementById('start-draw').addEventListener('click', () => this.startDraw());
+        document.getElementById('activate-draw').addEventListener('click', () => this.activateDraw());
         document.getElementById('stop-draw').addEventListener('click', () => this.stopDraw());
-        document.getElementById('draw-winner').addEventListener('click', () => this.drawWinner());
+        document.getElementById('open-tv-display').addEventListener('click', () => this.openTVDisplay());
         
         // Draw selection
         document.getElementById('draw-select').addEventListener('change', (e) => this.selectDraw(e.target.value));
@@ -48,7 +49,6 @@ class RaffleManagement {
     
     async updateWinners() {
         try {
-            // This would typically fetch from an API endpoint
             const response = await fetch('/api/winners');
             const winners = await response.json();
             
@@ -112,31 +112,34 @@ class RaffleManagement {
     }
     
     updateUI() {
-        const startBtn = document.getElementById('start-draw');
+        const activateBtn = document.getElementById('activate-draw');
         const stopBtn = document.getElementById('stop-draw');
-        const drawWinnerBtn = document.getElementById('draw-winner');
+        const tvDisplayBtn = document.getElementById('open-tv-display');
         
         if (this.currentDraw) {
             document.getElementById('current-draw-name').textContent = this.currentDraw.name;
             document.getElementById('prize-amount').textContent = `MWK ${this.currentDraw.prize_amount.toLocaleString()}`;
-            document.getElementById('winners-info').textContent = `${this.currentDraw.number_of_winners} winners`;
             
-            startBtn.disabled = this.isDrawRunning;
+            // Calculate remaining winners
+            const remainingWinners = this.currentDraw.number_of_winners - (this.currentDraw.winners_drawn || 0);
+            document.getElementById('winners-info').textContent = `${remainingWinners} winners remaining`;
+            
+            activateBtn.disabled = this.isDrawRunning;
             stopBtn.disabled = !this.isDrawRunning;
-            drawWinnerBtn.disabled = !this.isDrawRunning;
+            tvDisplayBtn.disabled = !this.isDrawRunning;
         } else {
-            startBtn.disabled = true;
+            activateBtn.disabled = true;
             stopBtn.disabled = true;
-            drawWinnerBtn.disabled = true;
+            tvDisplayBtn.disabled = true;
         }
         
         // Update status badge
         const statusBadge = document.getElementById('draw-status');
-        statusBadge.textContent = this.isDrawRunning ? 'Active' : 'Not Started';
+        statusBadge.textContent = this.isDrawRunning ? 'Active' : 'Not Active';
         statusBadge.className = `status-badge ${this.isDrawRunning ? 'status-active' : 'status-inactive'}`;
     }
     
-    async startDraw() {
+    async activateDraw() {
         if (!this.currentDraw) {
             alert('Please select a draw first');
             return;
@@ -152,13 +155,13 @@ class RaffleManagement {
             if (data.success) {
                 this.isDrawRunning = true;
                 this.updateUI();
-                alert('Draw started successfully!');
+                alert(data.message);
             } else {
-                alert('Error starting draw: ' + data.message);
+                alert('Error activating draw: ' + data.message);
             }
         } catch (error) {
-            console.error('Error starting draw:', error);
-            alert('Error starting draw');
+            console.error('Error activating draw:', error);
+            alert('Error activating draw');
         }
     }
     
@@ -173,43 +176,16 @@ class RaffleManagement {
             if (data.success) {
                 this.isDrawRunning = false;
                 this.updateUI();
-                alert('Draw stopped successfully!');
+                alert('Draw completed successfully!');
             }
         } catch (error) {
             console.error('Error stopping draw:', error);
         }
     }
     
-    async drawWinner() {
-        if (!this.isDrawRunning) {
-            alert('No active draw');
-            return;
-        }
-        
-        try {
-            const response = await fetch('/api/draws/draw-winner', {
-                method: 'POST'
-            });
-            
-            const data = await response.json();
-            
-            if (data.success && data.winner) {
-                alert(`Winner ${data.winner.position}: ${data.winner.phone_number}`);
-                
-                // Update winners list
-                await this.updateWinners();
-                await this.updateStats();
-                
-                // If draw is complete, stop it
-                if (data.winner.draw_complete) {
-                    this.stopDraw();
-                }
-            } else {
-                alert('Error drawing winner: ' + data.message);
-            }
-        } catch (error) {
-            console.error('Error drawing winner:', error);
-        }
+    openTVDisplay() {
+        // Open TV display in new tab
+        window.open('/tv', '_blank');
     }
     
     startAutoUpdate() {

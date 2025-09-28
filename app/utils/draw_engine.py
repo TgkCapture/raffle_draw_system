@@ -1,3 +1,4 @@
+# app/utils/draw_engine.py
 import random
 import time
 from threading import Thread, Event
@@ -22,9 +23,16 @@ class DrawEngine:
             if not draw:
                 return False, "Draw not found"
             
+            # Check how many winners have already been drawn
+            existing_winners = Winner.query.filter_by(draw_id=draw_id).count()
+            remaining_winners = draw.number_of_winners - existing_winners
+            
+            if remaining_winners <= 0:
+                return False, "All winners for this draw have already been selected"
+            
             participants = Participant.query.filter_by(draw_id=draw_id, is_verified=True).all()
-            if len(participants) < draw.number_of_winners:
-                return False, f"Not enough participants. Need {draw.number_of_winners}, have {len(participants)}"
+            if len(participants) < remaining_winners:
+                return False, f"Not enough participants. Need {remaining_winners}, have {len(participants)}"
             
             # Store only the necessary data, not the entire ORM object
             self.current_draw = {
@@ -36,16 +44,17 @@ class DrawEngine:
             }
             
             self.is_running = True
-            self.winners_drawn = 0
+            self.winners_drawn = existing_winners  # Start from where we left off
             self.total_winners = draw.number_of_winners
             self.participants = [p.phone_number for p in participants]
             self.participant_objects = participants  # Keep for winner selection
             
             # Update draw status in database
-            draw.status = 'active'
-            db.session.commit()
+            if draw.status != 'active':
+                draw.status = 'active'
+                db.session.commit()
             
-            return True, "Draw started successfully"
+            return True, f"Draw activated successfully. {remaining_winners} winners remaining to draw."
             
         except Exception as e:
             db.session.rollback()
@@ -58,10 +67,11 @@ class DrawEngine:
             self.animation_event.set()
             
             if self.current_draw:
-                # Update draw status in database
+                # Only mark as completed if all winners are drawn
                 draw = Draw.query.get(self.current_draw['id'])
-                if draw:
+                if draw and self.winners_drawn >= self.total_winners:
                     draw.status = 'completed'
+                    draw.completed_at = datetime.utcnow()
                     db.session.commit()
             
             return True, "Draw stopped"
@@ -128,8 +138,8 @@ class DrawEngine:
             current_app.logger.error(f"Error drawing winner: {e}")
             return None
     
-    def get_animation_sequence(self, duration=5):
-        """Generate animation sequence for the draw display"""
+    def get_animation_sequence(self, duration=10):
+        """Generate animation sequence for the draw display - 10 seconds minimum"""
         if not self.is_running:
             return []
         
@@ -149,13 +159,14 @@ class DrawEngine:
             sequence = []
             start_time = time.time()
             
+            # Generate sequence for at least 10 seconds
             while time.time() - start_time < duration and participants:
                 random_phone = random.choice(participants).phone_number
                 sequence.append({
                     'phone_number': random_phone,
                     'timestamp': time.time()
                 })
-                time.sleep(0.1)  # Fast animation
+                time.sleep(0.08)  # Slightly faster to fit more numbers in 10 seconds
             
             return sequence
             
