@@ -65,7 +65,7 @@ def get_participants(draw_id):
         'id': p.id,
         'phone_number': p.phone_number,
         'source': p.source,
-        'added_at': p.added_at.isoformat(),
+        'added_at': p.added_at.isoformat() if p.added_at else None,
         'is_verified': p.is_verified
     } for p in participants])
 
