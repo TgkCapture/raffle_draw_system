@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify
 from flask_login import login_required, current_user
 from app import db
-from app.models import Draw, AuditLog, Winner
+from app.models import Draw, AuditLog, Winner, Participant
 from app.utils.security import admin_required, audit_log
 from datetime import datetime, timedelta
 
@@ -18,7 +18,7 @@ def admin_panel():
 @login_required
 @admin_required
 @audit_log('Create draw')
-def create_draw():
+def create_draw_route():
     data = request.get_json()
     
     draw = Draw(
@@ -26,7 +26,7 @@ def create_draw():
         description=data.get('description', ''),
         prize_amount=float(data['prize_amount']),
         number_of_winners=int(data['number_of_winners']),
-        scheduled_for=datetime.fromisoformat(data['scheduled_for']) if data.get('scheduled_for') else None
+        scheduled_for=datetime.fromisoformat(data['scheduled_for'].replace('Z', '+00:00')) if data.get('scheduled_for') else None
     )
     
     db.session.add(draw)
