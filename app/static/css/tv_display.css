@@ -168,3 +168,118 @@ body::before {
     opacity: 0.9;
     transform: scale(1.05);
 }
+
+/* Enhanced Confetti with Shapes */
+.confetti {
+    position: fixed;
+    opacity: 0;
+    z-index: 10000;
+    pointer-events: none;
+}
+
+.confetti.circle {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.confetti.square {
+    width: 10px;
+    height: 10px;
+}
+
+.confetti.rectangle {
+    width: 6px;
+    height: 12px;
+}
+
+.confetti.triangle {
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 10px solid #f00;
+    background: transparent !important;
+}
+
+.confetti.diamond {
+    width: 10px;
+    height: 10px;
+    transform: rotate(45deg);
+}
+
+/* Animation variations */
+.confetti {
+    animation: confetti-fall 3s ease-in forwards;
+}
+
+.confetti:nth-child(5n) {
+    animation: confetti-fall-2 3.2s ease-out forwards;
+}
+
+.confetti:nth-child(5n+1) {
+    animation: confetti-fall-3 2.8s ease-in-out forwards;
+}
+
+.confetti:nth-child(5n+2) {
+    animation: confetti-fall-4 3.5s linear forwards;
+}
+
+.confetti:nth-child(5n+3) {
+    animation: confetti-fall-5 2.9s ease-in forwards;
+}
+
+@keyframes confetti-fall {
+    0% {
+        transform: translateY(-100px) translateX(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(30px) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+@keyframes confetti-fall-2 {
+    0% {
+        transform: translateY(-100px) translateX(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(-25px) rotate(-360deg);
+        opacity: 0;
+    }
+}
+
+@keyframes confetti-fall-3 {
+    0% {
+        transform: translateY(-100px) translateX(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(15px) rotate(180deg);
+        opacity: 0;
+    }
+}
+
+@keyframes confetti-fall-4 {
+    0% {
+        transform: translateY(-100px) translateX(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(-40px) rotate(540deg);
+        opacity: 0;
+    }
+}
+
+@keyframes confetti-fall-5 {
+    0% {
+        transform: translateY(-100px) translateX(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(35px) rotate(-180deg);
+        opacity: 0;
+    }
+}

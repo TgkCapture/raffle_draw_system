@@ -1,3 +1,4 @@
+// static/js/tv_display.js
 class RaffleDrawTV {
     constructor() {
         this.isDrawing = false;
@@ -6,6 +7,7 @@ class RaffleDrawTV {
         this.totalWinners = 0;
         this.winnersDrawn = 0;
         this.currentDraw = null;
+        this.isDrawingInProgress = false;
         
         this.initializeEventListeners();
         this.updateDrawStatus();
@@ -13,9 +15,8 @@ class RaffleDrawTV {
     }
     
     initializeEventListeners() {
-        document.getElementById('tv-start-draw').addEventListener('click', () => this.startDraw());
-        document.getElementById('tv-stop-draw').addEventListener('click', () => this.stopDraw());
         document.getElementById('tv-draw-winner').addEventListener('click', () => this.drawWinner());
+        document.getElementById('tv-stop-draw').addEventListener('click', () => this.stopDraw());
         
         // Double click to exit TV mode (for admin)
         document.addEventListener('dblclick', () => {
@@ -23,71 +24,61 @@ class RaffleDrawTV {
         });
     }
     
-    async startDraw() {
+    async updateDrawStatus() {
         try {
-            // Get current draw from server
-            const drawsResponse = await fetch('/api/draws');
-            const draws = await drawsResponse.json();
-            const activeDraw = draws.find(d => d.status === 'active' || d.status === 'draft');
-            
-            if (!activeDraw) {
-                this.showNotification('No available draws to start', 'error');
-                return;
-            }
-            
-            const response = await fetch(`/api/draws/${activeDraw.id}/start`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
-            
+            const response = await fetch('/api/draws/status');
             const data = await response.json();
             
-            if (data.success) {
+            if (data.is_running) {
                 this.isDrawing = true;
-                this.currentDraw = activeDraw;
-                this.totalWinners = activeDraw.number_of_winners;
-                this.updateUIForDrawing();
+                this.totalWinners = data.total_winners;
+                this.winnersDrawn = data.winners_drawn;
+                this.updateUIForActiveDraw();
+                this.updateProgressInfo();
+                
+                // Get current draw info
+                const drawsResponse = await fetch('/api/draws');
+                const draws = await drawsResponse.json();
+                this.currentDraw = draws.find(d => d.id === data.current_draw);
                 this.updateDrawInfo();
-                this.showNotification('Draw started successfully!', 'success');
+                
+                // Load existing winners
+                await this.loadExistingWinners();
             } else {
-                this.showNotification('Error: ' + data.message, 'error');
+                this.isDrawing = false;
+                this.updateUIForInactiveDraw();
             }
         } catch (error) {
-            console.error('Error starting draw:', error);
-            this.showNotification('Error starting draw', 'error');
+            console.error('Error updating draw status:', error);
         }
     }
     
-    async stopDraw() {
+    async loadExistingWinners() {
         try {
-            const response = await fetch('/api/draws/stop', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
+            const response = await fetch('/api/winners');
+            const winners = await response.json();
             
-            const data = await response.json();
+            // Filter winners for current draw
+            this.currentWinners = winners.filter(winner => 
+                winner.draw_name === this.currentDraw.name
+            ).sort((a, b) => a.position - b.position);
             
-            if (data.success) {
-                this.isDrawing = false;
-                this.stopAnimation();
-                this.updateUIForStopped();
-            }
+            this.updateWinnersList();
         } catch (error) {
-            console.error('Error stopping draw:', error);
+            console.error('Error loading existing winners:', error);
         }
     }
     
     async drawWinner() {
-        if (!this.isDrawing) return;
+        if (!this.isDrawing || this.isDrawingInProgress) return;
         
-        // Start animation before drawing winner
-        await this.startAnimation();
+        this.isDrawingInProgress = true;
+        document.getElementById('tv-draw-winner').disabled = true;
         
         try {
+            // Start 10-second animation
+            await this.startAnimation(10000); // 10 seconds
+            
             const response = await fetch('/api/draws/draw-winner', {
                 method: 'POST',
                 headers: {
@@ -106,49 +97,65 @@ class RaffleDrawTV {
                 this.updateProgressInfo();
                 this.updateWinnersList();
                 
-                // If draw is complete, stop the draw
+                // If draw is complete, show complete button
                 if (data.winner.draw_complete) {
-                    setTimeout(() => {
-                        this.stopDraw();
-                        this.showFinalWinners();
-                    }, 5000);
+                    document.getElementById('tv-stop-draw').classList.remove('hidden');
+                    document.getElementById('tv-draw-winner').classList.add('hidden');
                 } else {
-                    // Continue to next winner after delay
+                    // Re-enable draw button after 3 seconds
                     setTimeout(() => {
-                        this.resetForNextWinner();
+                        document.getElementById('tv-draw-winner').disabled = false;
                     }, 3000);
                 }
             } else {
-                alert('Error drawing winner: ' + data.message);
+                this.showNotification('Error drawing winner: ' + data.message, 'error');
+                document.getElementById('tv-draw-winner').disabled = false;
             }
         } catch (error) {
             console.error('Error drawing winner:', error);
+            this.showNotification('Error drawing winner', 'error');
+            document.getElementById('tv-draw-winner').disabled = false;
+        } finally {
+            this.isDrawingInProgress = false;
         }
     }
     
-    async startAnimation() {
+    async startAnimation(duration = 10000) {
         const numberDisplay = document.getElementById('number-display');
         numberDisplay.classList.add('spinning');
         numberDisplay.textContent = 'DRAWING...';
         
-        // Get participant numbers for animation
         try {
-            const response = await fetch(`/api/participants/${this.currentDraw.id}`);
-            const participants = await response.json();
+            const response = await fetch('/api/draws/animation');
+            const data = await response.json();
             
-            if (participants.length > 0) {
+            if (data.success && data.sequence.length > 0) {
+                const startTime = Date.now();
                 let index = 0;
+                
                 this.animationInterval = setInterval(() => {
-                    if (index < participants.length) {
-                        numberDisplay.textContent = participants[index].phone_number;
+                    const elapsed = Date.now() - startTime;
+                    
+                    if (elapsed >= duration) {
+                        this.stopAnimation();
+                        return;
+                    }
+                    
+                    if (index < data.sequence.length) {
+                        numberDisplay.textContent = data.sequence[index].phone_number;
                         index++;
                     } else {
-                        this.stopAnimation();
+                        // Loop through the sequence if we reach the end before duration
+                        index = 0;
                     }
-                }, 100);
+                }, 80); // Update every 80ms for smooth animation
             }
         } catch (error) {
-            console.error('Error getting participants:', error);
+            console.error('Error getting animation:', error);
+            // Fallback: just show "DRAWING..." for the duration
+            setTimeout(() => {
+                this.stopAnimation();
+            }, duration);
         }
     }
     
@@ -177,24 +184,40 @@ class RaffleDrawTV {
         this.createConfetti();
     }
     
-    resetForNextWinner() {
-        const numberDisplay = document.getElementById('number-display');
-        const winnerDisplay = document.getElementById('winner-display');
-        
-        winnerDisplay.classList.remove('pulse');
-        winnerDisplay.classList.add('hidden');
-        numberDisplay.classList.remove('hidden');
-        numberDisplay.textContent = 'READY FOR NEXT WINNER';
+    async stopDraw() {
+        try {
+            const response = await fetch('/api/draws/stop', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.isDrawing = false;
+                this.showNotification('Draw completed successfully!', 'success');
+                this.updateUIForInactiveDraw();
+            }
+        } catch (error) {
+            console.error('Error stopping draw:', error);
+            this.showNotification('Error completing draw', 'error');
+        }
     }
     
-    showFinalWinners() {
-        const numberDisplay = document.getElementById('number-display');
-        const winnerDisplay = document.getElementById('winner-display');
-        const winnersList = document.getElementById('winners-list');
-        
-        numberDisplay.classList.add('hidden');
-        winnerDisplay.classList.add('hidden');
-        winnersList.classList.remove('hidden');
+    updateUIForActiveDraw() {
+        document.getElementById('tv-draw-winner').classList.remove('hidden');
+        document.getElementById('tv-draw-winner').disabled = false;
+        document.getElementById('tv-stop-draw').classList.add('hidden');
+    }
+    
+    updateUIForInactiveDraw() {
+        document.getElementById('tv-draw-winner').classList.add('hidden');
+        document.getElementById('tv-stop-draw').classList.add('hidden');
+        document.getElementById('number-display').classList.remove('hidden');
+        document.getElementById('number-display').textContent = 'NO ACTIVE DRAW';
+        document.getElementById('winner-display').classList.add('hidden');
     }
     
     updateWinnersList() {
@@ -214,8 +237,10 @@ class RaffleDrawTV {
     
     updateProgressInfo() {
         const progressInfo = document.getElementById('progress-info');
+        const remaining = this.totalWinners - this.winnersDrawn;
+        
         if (this.totalWinners > 1) {
-            progressInfo.textContent = `Winner ${this.winnersDrawn} of ${this.totalWinners}`;
+            progressInfo.textContent = `${this.winnersDrawn} of ${this.totalWinners} winners drawn (${remaining} remaining)`;
             progressInfo.classList.remove('hidden');
         } else {
             progressInfo.classList.add('hidden');
@@ -233,41 +258,6 @@ class RaffleDrawTV {
                 .then(data => {
                     document.getElementById('tv-participant-count').textContent = `${data.count} Participants`;
                 });
-        }
-    }
-    
-    updateUIForDrawing() {
-        document.getElementById('tv-start-draw').classList.add('hidden');
-        document.getElementById('tv-stop-draw').classList.remove('hidden');
-        document.getElementById('tv-draw-winner').classList.remove('hidden');
-    }
-    
-    updateUIForStopped() {
-        document.getElementById('tv-start-draw').classList.remove('hidden');
-        document.getElementById('tv-stop-draw').classList.add('hidden');
-        document.getElementById('tv-draw-winner').classList.add('hidden');
-    }
-    
-    async updateDrawStatus() {
-        try {
-            const response = await fetch('/api/draws/status');
-            const data = await response.json();
-            
-            if (data.is_running && !this.isDrawing) {
-                this.isDrawing = true;
-                this.totalWinners = data.total_winners;
-                this.winnersDrawn = data.winners_drawn;
-                this.updateUIForDrawing();
-                this.updateProgressInfo();
-                
-                // Get current draw info
-                const drawsResponse = await fetch('/api/draws');
-                const draws = await drawsResponse.json();
-                this.currentDraw = draws.find(d => d.id === data.current_draw);
-                this.updateDrawInfo();
-            }
-        } catch (error) {
-            console.error('Error updating draw status:', error);
         }
     }
     
@@ -289,31 +279,57 @@ class RaffleDrawTV {
     
     createConfetti() {
         const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6'];
-        const container = document.body;
+        const shapes = ['circle', 'square', 'rectangle', 'triangle', 'diamond'];
+        const container = document.getElementById('confetti-container');
         
-        for (let i = 0; i < 50; i++) {
+        // Clear any existing confetti
+        container.innerHTML = '';
+        
+        // Create more varied confetti
+        for (let i = 0; i < 200; i++) {
             const confetti = document.createElement('div');
-            confetti.style.position = 'fixed';
-            confetti.style.width = '10px';
-            confetti.style.height = '10px';
-            confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-            confetti.style.borderRadius = '50%';
+            const shape = shapes[Math.floor(Math.random() * shapes.length)];
+            confetti.className = `confetti ${shape}`;
+            
+            // Random position across the top
             confetti.style.left = Math.random() * 100 + 'vw';
-            confetti.style.top = '-10px';
-            confetti.style.zIndex = '9999';
+            
+            // Random color
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            if (shape !== 'triangle') {
+                confetti.style.backgroundColor = color;
+            } else {
+                confetti.style.borderBottomColor = color;
+            }
+            
+            // Random size variations
+            if (shape === 'circle' || shape === 'square' || shape === 'diamond') {
+                const size = 6 + Math.random() * 8;
+                confetti.style.width = size + 'px';
+                confetti.style.height = size + 'px';
+            } else if (shape === 'rectangle') {
+                const width = 4 + Math.random() * 6;
+                const height = 8 + Math.random() * 8;
+                confetti.style.width = width + 'px';
+                confetti.style.height = height + 'px';
+            }
+            
+            // Random animation delay for staggered effect
+            confetti.style.animationDelay = (Math.random() * 2) + 's';
             
             container.appendChild(confetti);
             
-            const animation = confetti.animate([
-                { transform: 'translateY(0) rotate(0deg)', opacity: 1 },
-                { transform: `translateY(100vh) rotate(${Math.random() * 360}deg)`, opacity: 0 }
-            ], {
-                duration: Math.random() * 3000 + 2000,
-                easing: 'cubic-bezier(0.1, 0.8, 0.2, 1)'
-            });
-            
-            animation.onfinish = () => confetti.remove();
+            // Remove confetti after animation completes
+            setTimeout(() => {
+                if (confetti.parentElement === container) {
+                    confetti.remove();
+                }
+            }, 5000);
         }
+    }
+    
+    showNotification(message, type = 'info') {
+        console.log(`${type.toUpperCase()}: ${message}`);
     }
 }
 
