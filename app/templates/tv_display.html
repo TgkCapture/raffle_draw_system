@@ -9,6 +9,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
+    <div id="confetti-container"></div>
+
     <div class="tv-container">
         <div class="logo">
             <img src="{{ url_for('static', filename='images/mbc-white-logo.png') }}" alt="MBC Logo">
@@ -31,8 +33,6 @@
             <button class="tv-btn tv-btn-stop hidden" id="tv-stop-draw">COMPLETE DRAW</button>
         </div>
     </div>
-
-    <div id="confetti-container"></div>
 
     <script src="{{ url_for('static', filename='js/tv_display.js') }}"></script>
 </body>

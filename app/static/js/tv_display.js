@@ -285,14 +285,14 @@ class RaffleDrawTV {
         // Clear any existing confetti
         container.innerHTML = '';
         
-        // Create more varied confetti
         for (let i = 0; i < 200; i++) {
             const confetti = document.createElement('div');
             const shape = shapes[Math.floor(Math.random() * shapes.length)];
             confetti.className = `confetti ${shape}`;
             
-            // Random position across the top
             confetti.style.left = Math.random() * 100 + 'vw';
+            
+            confetti.style.top = '-20px';
             
             // Random color
             const color = colors[Math.floor(Math.random() * colors.length)];
