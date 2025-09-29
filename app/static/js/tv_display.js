@@ -75,10 +75,57 @@ class RaffleDrawTV {
         this.isDrawingInProgress = true;
         document.getElementById('tv-draw-winner').disabled = true;
         
+        // Start animation for 10 seconds
+        await this.startAnimation(10000);
+    }
+    
+    async startAnimation(duration = 10000) {
+        const numberDisplay = document.getElementById('number-display');
+        numberDisplay.classList.add('spinning');
+        numberDisplay.textContent = 'DRAWING...';
+        
         try {
-            // Start 10-second animation
-            await this.startAnimation(10000); // 10 seconds
+            const response = await fetch('/api/draws/animation');
+            const data = await response.json();
             
+            if (data.success && data.sequence.length > 0) {
+                const startTime = Date.now();
+                let index = 0;
+                
+                this.animationInterval = setInterval(() => {
+                    const elapsed = Date.now() - startTime;
+                    
+                    if (elapsed >= duration) {
+                        this.stopAnimation();
+                        // Proceed to draw the actual winner
+                        this.drawActualWinner();
+                        return;
+                    }
+                    
+                    // Display the next phone number from the sequence
+                    if (index < data.sequence.length) {
+                        numberDisplay.textContent = data.sequence[index].phone_number;
+                        index++;
+                    } else {
+                        index = 0;
+                        numberDisplay.textContent = data.sequence[index].phone_number;
+                        index++;
+                    }
+                }, 80); 
+            } else {
+                // Fallback if no sequence data
+                this.fallbackAnimation(duration);
+            }
+        } catch (error) {
+            console.error('Error getting animation:', error);
+            // Fallback animation
+            this.fallbackAnimation(duration);
+        }
+    }
+    
+    // Method to handle the actual winner drawing after animation
+    async drawActualWinner() {
+        try {
             const response = await fetch('/api/draws/draw-winner', {
                 method: 'POST',
                 headers: {
@@ -105,58 +152,41 @@ class RaffleDrawTV {
                     // Re-enable draw button after 3 seconds
                     setTimeout(() => {
                         document.getElementById('tv-draw-winner').disabled = false;
+                        this.isDrawingInProgress = false;
                     }, 3000);
                 }
             } else {
                 this.showNotification('Error drawing winner: ' + data.message, 'error');
                 document.getElementById('tv-draw-winner').disabled = false;
+                this.isDrawingInProgress = false;
             }
         } catch (error) {
             console.error('Error drawing winner:', error);
             this.showNotification('Error drawing winner', 'error');
             document.getElementById('tv-draw-winner').disabled = false;
-        } finally {
             this.isDrawingInProgress = false;
         }
     }
     
-    async startAnimation(duration = 10000) {
+    // Fallback animation if API fails
+    fallbackAnimation(duration) {
         const numberDisplay = document.getElementById('number-display');
-        numberDisplay.classList.add('spinning');
-        numberDisplay.textContent = 'DRAWING...';
+        const startTime = Date.now();
+        let count = 0;
         
-        try {
-            const response = await fetch('/api/draws/animation');
-            const data = await response.json();
+        this.animationInterval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
             
-            if (data.success && data.sequence.length > 0) {
-                const startTime = Date.now();
-                let index = 0;
-                
-                this.animationInterval = setInterval(() => {
-                    const elapsed = Date.now() - startTime;
-                    
-                    if (elapsed >= duration) {
-                        this.stopAnimation();
-                        return;
-                    }
-                    
-                    if (index < data.sequence.length) {
-                        numberDisplay.textContent = data.sequence[index].phone_number;
-                        index++;
-                    } else {
-                        // Loop through the sequence if we reach the end before duration
-                        index = 0;
-                    }
-                }, 80); // Update every 80ms for smooth animation
-            }
-        } catch (error) {
-            console.error('Error getting animation:', error);
-            // Fallback: just show "DRAWING..." for the duration
-            setTimeout(() => {
+            if (elapsed >= duration) {
                 this.stopAnimation();
-            }, duration);
-        }
+                this.drawActualWinner();
+                return;
+            }
+ 
+            count++;
+            numberDisplay.textContent = `Drawing ${count}...`;
+            
+        }, 80);
     }
     
     stopAnimation() {
@@ -281,8 +311,7 @@ class RaffleDrawTV {
         const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6'];
         const shapes = ['circle', 'square', 'rectangle', 'triangle', 'diamond'];
         const container = document.getElementById('confetti-container');
-        
-        // Clear any existing confetti
+      
         container.innerHTML = '';
         
         for (let i = 0; i < 200; i++) {
@@ -314,12 +343,10 @@ class RaffleDrawTV {
                 confetti.style.height = height + 'px';
             }
             
-            // Random animation delay for staggered effect
             confetti.style.animationDelay = (Math.random() * 2) + 's';
             
             container.appendChild(confetti);
             
-            // Remove confetti after animation completes
             setTimeout(() => {
                 if (confetti.parentElement === container) {
                     confetti.remove();

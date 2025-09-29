@@ -139,34 +139,40 @@ class DrawEngine:
             return None
     
     def get_animation_sequence(self, duration=10):
-        """Generate animation sequence for the draw display - 10 seconds minimum"""
+        """Generate animation sequence using actual participants"""
         if not self.is_running:
             return []
         
         try:
-            # Get fresh participant data
-            participants = Participant.query.filter(
-                Participant.draw_id == self.current_draw['id'],
+            draw_id = self.current_draw['id']
+            
+            participant_numbers = Participant.query.filter(
+                Participant.draw_id == draw_id,
                 Participant.is_verified == True
             ).filter(
                 ~Participant.id.in_(
                     db.session.query(Winner.participant_id).filter(
-                        Winner.draw_id == self.current_draw['id']
+                        Winner.draw_id == draw_id
                     )
                 )
-            ).all()
+            ).with_entities(Participant.phone_number).all()
             
+            # Extract just the phone numbers
+            phone_numbers = [p[0] for p in participant_numbers]
+            
+            if not phone_numbers:
+                return []
+            
+            numbers_needed = 125  # 10000ms / 80ms = 125
+            
+            # Generate random sequence using actual uploaded phone numbers
             sequence = []
-            start_time = time.time()
-            
-            # Generate sequence for at least 10 seconds
-            while time.time() - start_time < duration and participants:
-                random_phone = random.choice(participants).phone_number
+            for i in range(numbers_needed):
+                random_phone = random.choice(phone_numbers)
                 sequence.append({
                     'phone_number': random_phone,
                     'timestamp': time.time()
                 })
-                time.sleep(0.08)  # Slightly faster to fit more numbers in 10 seconds
             
             return sequence
             
