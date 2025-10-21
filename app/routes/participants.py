@@ -7,6 +7,9 @@ from app import db
 from app.models import Participant, Draw, APIConfig
 from app.utils.file_processing import process_csv_file, process_excel_file, get_allowed_extensions
 from app.utils.security import audit_log, admin_required
+from app.utils.api_service import api_service
+import requests
+from flask import current_app
 
 participants_bp = Blueprint('participants', __name__)
 
@@ -92,7 +95,81 @@ def update_api_config():
     api_config.api_key = data.get('api_key')
     api_config.refresh_interval = data.get('refresh_interval', 5)
     api_config.is_active = data.get('is_active', False)
+    api_config.default_draw_id = data.get('default_draw_id')  
     
     db.session.commit()
     
     return jsonify({'success': True, 'message': 'API configuration updated'})
+
+@participants_bp.route('/api/api-config/status', methods=['GET'])
+@login_required
+def get_api_status():
+    """Get current API service status"""
+    return jsonify({
+        'is_running': api_service.is_running,
+        'is_active': api_service.is_running
+    })
+
+@participants_bp.route('/api/api-config/start', methods=['POST'])
+@login_required
+@admin_required
+@audit_log('Start API service')
+def start_api_service():
+    """Start the API polling service"""
+    try:
+        success = api_service.start_polling()
+        if success:
+            return jsonify({'success': True, 'message': 'API service started'})
+        else:
+            return jsonify({'success': False, 'message': 'API service is already running'})
+    except Exception as e:
+        current_app.logger.error(f"Error starting API service: {e}")
+        return jsonify({'success': False, 'message': f'Error starting API service: {str(e)}'})
+
+@participants_bp.route('/api/api-config/stop', methods=['POST'])
+@login_required
+@admin_required
+@audit_log('Stop API service')
+def stop_api_service():
+    """Stop the API polling service"""
+    try:
+        api_service.stop_polling()
+        return jsonify({'success': True, 'message': 'API service stopped'})
+    except Exception as e:
+        current_app.logger.error(f"Error stopping API service: {e}")
+        return jsonify({'success': False, 'message': f'Error stopping API service: {str(e)}'})
+
+@participants_bp.route('/api/api-config/test', methods=['POST'])
+@login_required
+@admin_required
+@audit_log('Test API connection')
+def test_api_connection():
+    """Test the API connection"""
+    try:
+        api_config = APIConfig.query.first()
+        if not api_config or not api_config.endpoint_url:
+            return jsonify({'success': False, 'message': 'No API endpoint configured'})
+        
+        headers = {}
+        if api_config.auth_method == 'api_key' and api_config.api_key:
+            headers['Authorization'] = f'Bearer {api_config.api_key}'
+        elif api_config.auth_method == 'basic_auth' and api_config.api_key:
+            headers['Authorization'] = f'Basic {api_config.api_key}'
+        
+        response = requests.get(api_config.endpoint_url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            return jsonify({
+                'success': True, 
+                'message': f'API connection successful. Status: {response.status_code}'
+            })
+        else:
+            return jsonify({
+                'success': False, 
+                'message': f'API returned status code: {response.status_code}'
+            })
+            
+    except requests.exceptions.RequestException as e:
+        return jsonify({'success': False, 'message': f'API connection failed: {str(e)}'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Error testing API: {str(e)}'})
