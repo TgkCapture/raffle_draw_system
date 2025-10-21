@@ -176,3 +176,62 @@ function showNotification(message, type = 'info') {
     
     document.body.appendChild(notification);
 }
+
+class APIService {
+    constructor() {
+        this.updateStatus();
+        setInterval(() => this.updateStatus(), 10000); // Update every 10 seconds
+    }
+    
+    async updateStatus() {
+        try {
+            const response = await fetch('/api/api-config/status');
+            const status = await response.json();
+            
+            document.getElementById('api-status').textContent = 
+                status.is_running ? 'RUNNING' : 'STOPPED';
+            document.getElementById('api-status').className = 
+                status.is_running ? 'status-running' : 'status-stopped';
+                
+            document.getElementById('start-api-btn').disabled = status.is_running;
+            document.getElementById('stop-api-btn').disabled = !status.is_running;
+        } catch (error) {
+            console.error('Error updating API status:', error);
+        }
+    }
+    
+    async startService() {
+        try {
+            const response = await fetch('/api/api-config/start', { method: 'POST' });
+            const result = await response.json();
+            alert(result.message);
+            this.updateStatus();
+        } catch (error) {
+            console.error('Error starting API service:', error);
+            alert('Error starting API service');
+        }
+    }
+    
+    async stopService() {
+        try {
+            const response = await fetch('/api/api-config/stop', { method: 'POST' });
+            const result = await response.json();
+            alert(result.message);
+            this.updateStatus();
+        } catch (error) {
+            console.error('Error stopping API service:', error);
+            alert('Error stopping API service');
+        }
+    }
+    
+    async testConnection() {
+        try {
+            const response = await fetch('/api/api-config/test', { method: 'POST' });
+            const result = await response.json();
+            alert(result.message);
+        } catch (error) {
+            console.error('Error testing API connection:', error);
+            alert('Error testing API connection');
+        }
+    }
+}
