@@ -1,4 +1,4 @@
-<!-- app/templates/particiants.html -->
+<!-- app/templates/participants.html -->
 {% extends "base.html" %}
 
 {% block title %}Participants Management{% endblock %}
@@ -55,14 +55,25 @@
                     <label class="form-label">Authentication Method</label>
                     <select class="form-control" id="auth-method">
                         <option value="none" {% if api_config and api_config.auth_method == 'none' %}selected{% endif %}>None</option>
-                        <option value="bearer" {% if api_config and api_config.auth_method == 'bearer' %}selected{% endif %}>Bearer Token</option>
-                        <option value="api-key" {% if api_config and api_config.auth_method == 'api-key' %}selected{% endif %}>API Key</option>
+                        <option value="api_key" {% if api_config and api_config.auth_method == 'api_key' %}selected{% endif %}>API Key</option>
+                        <option value="basic_auth" {% if api_config and api_config.auth_method == 'basic_auth' %}selected{% endif %}>Basic Auth</option>
                     </select>
                 </div>
                 <div class="form-group" id="token-field" style="display: {% if api_config and api_config.auth_method != 'none' %}block{% else %}none{% endif %};">
                     <label class="form-label">Token/API Key</label>
                     <input type="password" class="form-control" id="api-token" 
                            value="{{ api_config.api_key if api_config else '' }}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Default Draw</label>
+                    <select class="form-control" id="default-draw">
+                        <option value="">Select default draw...</option>
+                        {% for draw in draws %}
+                        <option value="{{ draw.id }}" {% if api_config and api_config.default_draw_id == draw.id %}selected{% endif %}>
+                            {{ draw.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Refresh Interval (minutes)</label>
@@ -78,6 +89,23 @@
                 <button type="submit" class="btn btn-primary">Save Configuration</button>
                 <button type="button" class="btn btn-success" id="test-api">Test Connection</button>
             </form>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">API Service Control</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label class="form-label">Service Status:</label>
+                <span id="api-status" class="status-stopped">STOPPED</span>
+            </div>
+            <div class="button-group">
+                <button type="button" class="btn btn-success" id="start-api-btn">Start Service</button>
+                <button type="button" class="btn btn-danger" id="stop-api-btn" disabled>Stop Service</button>
+                <button type="button" class="btn btn-info" id="test-connection-btn">Test Connection</button>
+            </div>
         </div>
     </div>
 </div>
@@ -97,21 +125,23 @@
                     {% endfor %}
                 </select>
             </div>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Phone Number</th>
-                        <th>Date Added</th>
-                        <th>Source</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody id="participants-table">
-                    <tr>
-                        <td colspan="4" class="text-center">Select a draw to view participants</td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Phone Number</th>
+                            <th>Date Added</th>
+                            <th>Source</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="participants-table">
+                        <tr>
+                            <td colspan="4" class="text-center">Select a draw to view participants</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
