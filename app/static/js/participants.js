@@ -1,8 +1,13 @@
+// static/js/participants.js
 document.addEventListener('DOMContentLoaded', function() {
     initializeTabs();
     initializeAuthMethodToggle();
     initializeUploadForm();
     initializeViewParticipants();
+    initializeAPIConfig();
+    
+    // Initialize API service
+    window.apiService = new APIService();
 });
 
 function initializeTabs() {
@@ -33,7 +38,86 @@ function initializeAuthMethodToggle() {
         authMethodSelect.addEventListener('change', function() {
             tokenField.style.display = this.value === 'none' ? 'none' : 'block';
         });
+        
+        // Trigger change event to set initial state
+        authMethodSelect.dispatchEvent(new Event('change'));
     }
+}
+
+function initializeAPIConfig() {
+    const apiConfigForm = document.getElementById('api-config-form');
+    if (apiConfigForm) {
+        apiConfigForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveAPIConfig();
+        });
+    }
+    
+    const startApiBtn = document.getElementById('start-api-btn');
+    const stopApiBtn = document.getElementById('stop-api-btn');
+    const testApiBtn = document.getElementById('test-api');
+    const testConnectionBtn = document.getElementById('test-connection-btn');
+    
+    if (startApiBtn) {
+        startApiBtn.addEventListener('click', function() {
+            window.apiService.startService();
+        });
+    }
+    
+    if (stopApiBtn) {
+        stopApiBtn.addEventListener('click', function() {
+            window.apiService.stopService();
+        });
+    }
+    
+    if (testApiBtn) {
+        testApiBtn.addEventListener('click', function() {
+            window.apiService.testConnection();
+        });
+    }
+    
+    if (testConnectionBtn) {
+        testConnectionBtn.addEventListener('click', function() {
+            window.apiService.testConnection();
+        });
+    }
+}
+
+function saveAPIConfig() {
+    const config = {
+        endpoint_url: document.getElementById('api-endpoint').value,
+        auth_method: document.getElementById('auth-method').value,
+        api_key: document.getElementById('api-token').value,
+        refresh_interval: parseInt(document.getElementById('refresh-interval').value),
+        is_active: document.getElementById('api-active').checked,
+        default_draw_id: document.getElementById('default-draw').value || null
+    };
+    
+    // Validate required fields
+    if (!config.endpoint_url) {
+        showNotification('API Endpoint URL is required', 'error');
+        return;
+    }
+    
+    fetch('/api/api-config', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(config)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('API configuration saved successfully', 'success');
+        } else {
+            showNotification('Error saving API configuration: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Error saving API configuration', 'error');
+    });
 }
 
 function initializeUploadForm() {
@@ -74,6 +158,12 @@ function initializeUploadForm() {
                 if (data.success) {
                     showNotification(data.message, 'success');
                     uploadForm.reset();
+                    
+                    // Refresh participants list if we're on the view tab
+                    const viewDrawSelect = document.getElementById('view-draw-select');
+                    if (viewDrawSelect && viewDrawSelect.value) {
+                        loadParticipants(viewDrawSelect.value);
+                    }
                 } else {
                     showNotification(data.message, 'error');
                 }
@@ -95,43 +185,51 @@ function initializeViewParticipants() {
     if (viewDrawSelect) {
         viewDrawSelect.addEventListener('change', function() {
             const drawId = this.value;
-            if (!drawId) {
-                const table = document.getElementById('participants-table');
-                table.innerHTML = '<tr><td colspan="4" class="text-center">Select a draw to view participants</td></tr>';
-                return;
-            }
-            
-            // Show loading state
-            const table = document.getElementById('participants-table');
-            table.innerHTML = '<tr><td colspan="4" class="text-center">Loading participants...</td></tr>';
-            
-            fetch(`/api/participants/${drawId}`)
-                .then(response => response.json())
-                .then(participants => {
-                    if (participants.length === 0) {
-                        table.innerHTML = '<tr><td colspan="4" class="text-center">No participants found</td></tr>';
-                        return;
-                    }
-                    
-                    table.innerHTML = participants.map(p => `
-                        <tr>
-                            <td>${p.phone_number}</td>
-                            <td>${new Date(p.added_at).toLocaleDateString()}</td>
-                            <td>${p.source}</td>
-                            <td><span class="status-badge ${p.is_verified ? 'status-active' : 'status-inactive'}">${p.is_verified ? 'Verified' : 'Pending'}</span></td>
-                        </tr>
-                    `).join('');
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    table.innerHTML = '<tr><td colspan="4" class="text-center">Error loading participants</td></tr>';
-                });
+            loadParticipants(drawId);
         });
     }
 }
 
+function loadParticipants(drawId) {
+    if (!drawId) {
+        const table = document.getElementById('participants-table');
+        table.innerHTML = '<tr><td colspan="4" class="text-center">Select a draw to view participants</td></tr>';
+        return;
+    }
+    
+    // Show loading state
+    const table = document.getElementById('participants-table');
+    table.innerHTML = '<tr><td colspan="4" class="text-center">Loading participants...</td></tr>';
+    
+    fetch(`/api/participants/${drawId}`)
+        .then(response => response.json())
+        .then(participants => {
+            if (participants.length === 0) {
+                table.innerHTML = '<tr><td colspan="4" class="text-center">No participants found</td></tr>';
+                return;
+            }
+            
+            table.innerHTML = participants.map(p => `
+                <tr>
+                    <td>${p.phone_number}</td>
+                    <td>${new Date(p.added_at).toLocaleDateString()}</td>
+                    <td>${p.source}</td>
+                    <td><span class="status-badge ${p.is_verified ? 'status-active' : 'status-inactive'}">${p.is_verified ? 'Verified' : 'Pending'}</span></td>
+                </tr>
+            `).join('');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            table.innerHTML = '<tr><td colspan="4" class="text-center">Error loading participants</td></tr>';
+        });
+}
+
 function showNotification(message, type = 'info') {
-    // Reuse the same notification function from admin.js
+    // Remove any existing notifications
+    document.querySelectorAll('.notification').forEach(notification => {
+        notification.remove();
+    });
+    
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
     notification.innerHTML = `
@@ -145,9 +243,9 @@ function showNotification(message, type = 'info') {
         position: fixed;
         top: 20px;
         right: 20px;
-        background: ${type === 'success' ? 'var(--success-color)' : 
-                      type === 'error' ? 'var(--danger-color)' : 
-                      type === 'warning' ? 'var(--warning-color)' : 'var(--info-color)'};
+        background: ${type === 'success' ? '#28a745' : 
+                      type === 'error' ? '#dc3545' : 
+                      type === 'warning' ? '#ffc107' : '#17a2b8'};
         color: white;
         padding: 15px 20px;
         border-radius: 10px;
@@ -161,15 +259,20 @@ function showNotification(message, type = 'info') {
     closeBtn.addEventListener('click', () => {
         notification.style.animation = 'slideOutRight 0.3s ease';
         setTimeout(() => {
-            notification.remove();
+            if (notification.parentElement) {
+                notification.remove();
+            }
         }, 300);
     });
     
+    // Auto remove after 5 seconds
     setTimeout(() => {
         if (notification.parentElement) {
             notification.style.animation = 'slideOutRight 0.3s ease';
             setTimeout(() => {
-                notification.remove();
+                if (notification.parentElement) {
+                    notification.remove();
+                }
             }, 300);
         }
     }, 5000);
@@ -180,7 +283,8 @@ function showNotification(message, type = 'info') {
 class APIService {
     constructor() {
         this.updateStatus();
-        setInterval(() => this.updateStatus(), 10000); // Update every 10 seconds
+        // Update status every 10 seconds
+        setInterval(() => this.updateStatus(), 10000);
     }
     
     async updateStatus() {
@@ -188,13 +292,18 @@ class APIService {
             const response = await fetch('/api/api-config/status');
             const status = await response.json();
             
-            document.getElementById('api-status').textContent = 
-                status.is_running ? 'RUNNING' : 'STOPPED';
-            document.getElementById('api-status').className = 
-                status.is_running ? 'status-running' : 'status-stopped';
-                
-            document.getElementById('start-api-btn').disabled = status.is_running;
-            document.getElementById('stop-api-btn').disabled = !status.is_running;
+            const statusElement = document.getElementById('api-status');
+            const startBtn = document.getElementById('start-api-btn');
+            const stopBtn = document.getElementById('stop-api-btn');
+            
+            if (statusElement) {
+                statusElement.textContent = status.is_running ? 'RUNNING' : 'STOPPED';
+                statusElement.className = status.is_running ? 'status-running' : 'status-stopped';
+            }
+            
+            if (startBtn) startBtn.disabled = status.is_running;
+            if (stopBtn) stopBtn.disabled = !status.is_running;
+            
         } catch (error) {
             console.error('Error updating API status:', error);
         }
@@ -202,36 +311,68 @@ class APIService {
     
     async startService() {
         try {
-            const response = await fetch('/api/api-config/start', { method: 'POST' });
+            const response = await fetch('/api/api-config/start', { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
             const result = await response.json();
-            alert(result.message);
+            
+            if (result.success) {
+                showNotification(result.message, 'success');
+            } else {
+                showNotification(result.message, 'error');
+            }
+            
             this.updateStatus();
         } catch (error) {
             console.error('Error starting API service:', error);
-            alert('Error starting API service');
+            showNotification('Error starting API service', 'error');
         }
     }
     
     async stopService() {
         try {
-            const response = await fetch('/api/api-config/stop', { method: 'POST' });
+            const response = await fetch('/api/api-config/stop', { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
             const result = await response.json();
-            alert(result.message);
+            
+            if (result.success) {
+                showNotification(result.message, 'success');
+            } else {
+                showNotification(result.message, 'error');
+            }
+            
             this.updateStatus();
         } catch (error) {
             console.error('Error stopping API service:', error);
-            alert('Error stopping API service');
+            showNotification('Error stopping API service', 'error');
         }
     }
     
     async testConnection() {
         try {
-            const response = await fetch('/api/api-config/test', { method: 'POST' });
+            const response = await fetch('/api/api-config/test', { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
             const result = await response.json();
-            alert(result.message);
+            
+            if (result.success) {
+                showNotification(result.message, 'success');
+            } else {
+                showNotification(result.message, 'error');
+            }
         } catch (error) {
             console.error('Error testing API connection:', error);
-            alert('Error testing API connection');
+            showNotification('Error testing API connection', 'error');
         }
     }
 }
