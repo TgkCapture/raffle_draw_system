@@ -2,6 +2,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from flask_migrate import Migrate
 import os
 
 db = SQLAlchemy()
@@ -9,6 +10,8 @@ login_manager = LoginManager()
 
 def create_app():
     app = Flask(__name__)
+
+    migrate = Migrate(app, db)
     
     # Configuration
     app.config['SECRET_KEY'] = '1234567890abcdef'
