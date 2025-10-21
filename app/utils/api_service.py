@@ -12,6 +12,14 @@ class APIService:
         self.is_running = False
         self.polling_thread = None
         self.polling_event = Event()
+        self._app = None
+    
+    @property
+    def app(self):
+        if self._app is None:
+            from app import create_app
+            self._app = create_app()
+        return self._app
     
     def start_polling(self):
         """Start polling the external API"""
@@ -34,20 +42,21 @@ class APIService:
     
     def _polling_worker(self):
         """Background worker that polls the API"""
-        while self.is_running and not self.polling_event.is_set():
-            try:
-                self._fetch_from_api()
-                
-                # Wait for the configured interval
-                api_config = APIConfig.query.first()
-                if api_config:
-                    self.polling_event.wait(api_config.refresh_interval * 60)  # Convert to seconds
-                else:
-                    self.polling_event.wait(300)  # Default 5 minutes
+        with self.app.app_context():
+            while self.is_running and not self.polling_event.is_set():
+                try:
+                    self._fetch_from_api()
                     
-            except Exception as e:
-                current_app.logger.error(f"API polling error: {e}")
-                self.polling_event.wait(300)  # Wait 5 minutes on error
+                    # Wait for the configured interval
+                    api_config = APIConfig.query.first()
+                    if api_config:
+                        self.polling_event.wait(api_config.refresh_interval * 60)
+                    else:
+                        self.polling_event.wait(300)
+                        
+                except Exception as e:
+                    print(f"API polling error: {e}")
+                    self.polling_event.wait(300)
     
     def _fetch_from_api(self):
         """Fetch data from the external API"""
@@ -62,8 +71,9 @@ class APIService:
             if api_config.auth_method == 'api_key' and api_config.api_key:
                 headers['Authorization'] = f'Bearer {api_config.api_key}'
             elif api_config.auth_method == 'basic_auth' and api_config.api_key:
-                # Assuming api_key contains base64 encoded user:pass
                 headers['Authorization'] = f'Basic {api_config.api_key}'
+            
+            print(f"Fetching from API: {api_config.endpoint_url}")
             
             # Make API request
             response = requests.get(
@@ -72,16 +82,23 @@ class APIService:
                 timeout=30
             )
             
+            print(f"API Response Status: {response.status_code}")
+            
             if response.status_code == 200:
-                self._process_api_response(response.json())
-                current_app.logger.info("Successfully fetched data from API")
+                data = response.json()
+                print(f"API Response Data: {data}")
+                self._process_api_response(data)
+               
+                api_config.last_sync = datetime.utcnow()
+                db.session.commit()
+                print("Successfully fetched data from API")
             else:
-                current_app.logger.error(f"API returned status code: {response.status_code}")
+                print(f"API returned status code: {response.status_code}")
                 
         except requests.exceptions.RequestException as e:
-            current_app.logger.error(f"API request failed: {e}")
+            print(f"API request failed: {e}")
         except Exception as e:
-            current_app.logger.error(f"Error processing API response: {e}")
+            print(f"Error processing API response: {e}")
     
     def _process_api_response(self, data):
         """Process the API response with flexible format handling"""
@@ -97,7 +114,7 @@ class APIService:
             participants_data = self._extract_participants_data(data)
             
             if not participants_data:
-                current_app.logger.warning("No participant data found in API response")
+                print("No participant data found in API response")
                 return
             
             added_count = 0
@@ -106,14 +123,16 @@ class APIService:
                     added_count += 1
             
             db.session.commit()
-            current_app.logger.info(f"Added {added_count} participants from API")
+            print(f"Added {added_count} participants from API")
             
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f"Error processing API data: {e}")
+            print(f"Error processing API data: {e}")
     
     def _extract_participants_data(self, data):
         """Extract participants data from various API response formats"""
+        
+        print(f"Extracting data from: {data}")
         
         # Format 1: Simple array of phone numbers
         if isinstance(data, list) and all(isinstance(item, str) for item in data):
@@ -157,7 +176,7 @@ class APIService:
             return self._extract_participants_data(data['participants'])
         
         else:
-            current_app.logger.warning(f"Unrecognized API response format: {type(data)}")
+            print(f"Unrecognized API response format: {type(data)}")
             return []
     
     def _add_participant_from_api(self, participant_data, default_draw_id):
@@ -174,7 +193,7 @@ class APIService:
                 break
         
         if not phone_number:
-            current_app.logger.warning("No valid phone number found in participant data")
+            print("No valid phone number found in participant data")
             return False
         
         # Extract draw ID or use default
@@ -189,10 +208,15 @@ class APIService:
                 except (ValueError, TypeError):
                     continue
         
+        # If no draw_id found in data and no default, skip
+        if not draw_id:
+            print(f"No draw ID specified for participant {phone_number}")
+            return False
+        
         # Validate draw exists
         draw = Draw.query.get(draw_id)
         if not draw:
-            current_app.logger.error(f"Draw {draw_id} not found for participant {phone_number}")
+            print(f"Draw {draw_id} not found for participant {phone_number}")
             return False
         
         # Check if participant already exists
@@ -202,7 +226,7 @@ class APIService:
         ).first()
         
         if existing:
-            current_app.logger.debug(f"Participant {phone_number} already exists in draw {draw_id}")
+            print(f"Participant {phone_number} already exists in draw {draw_id}")
             return False
         
         # Add new participant
@@ -215,7 +239,7 @@ class APIService:
         )
         
         db.session.add(participant)
-        current_app.logger.info(f"Added participant {phone_number} from API to draw {draw_id}")
+        print(f"Added participant {phone_number} from API to draw {draw_id}")
         return True
 
 # Global API service instance
