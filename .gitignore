@@ -3,3 +3,7 @@ uploads/
 app/__pycache__/
 __pycache__/
 instance/
+migrations/
+*.pyc
+*.db
+.DS_Store
