@@ -50,9 +50,10 @@ class APIConfig(db.Model):
     endpoint_url = db.Column(db.String(500))
     auth_method = db.Column(db.String(20), default='none')
     api_key = db.Column(db.String(200))
-    refresh_interval = db.Column(db.Integer, default=5)  # minutes
+    refresh_interval = db.Column(db.Integer, default=1)  # minutes
     is_active = db.Column(db.Boolean, default=False)
     last_sync = db.Column(db.DateTime)
+    default_draw_id = db.Column(db.Integer, db.ForeignKey('draw.id'), nullable=True)
 
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
