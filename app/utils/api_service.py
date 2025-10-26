@@ -118,7 +118,21 @@ class APIService:
                 return
             
             added_count = 0
+            seen_participants = set()  # Track duplicates in this batch
+            
             for participant_data in participants_data:
+                # Create unique key for this batch
+                phone_number = self._extract_phone_number(participant_data)
+                draw_id = self._extract_draw_id(participant_data, default_draw_id)
+                
+                participant_key = f"{phone_number}-{draw_id}"
+                
+                if participant_key in seen_participants:
+                    print(f"Duplicate in API batch: {phone_number} for draw {draw_id}")
+                    continue
+                    
+                seen_participants.add(participant_key)
+                
                 if self._add_participant_from_api(participant_data, default_draw_id):
                     added_count += 1
             
