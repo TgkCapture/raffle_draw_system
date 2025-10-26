@@ -148,11 +148,15 @@ class APIService:
         
         print(f"Extracting data from: {data}")
         
-        # Format 1: Simple array of phone numbers
+        if isinstance(data, dict) and 'phone_numbers' in data:
+            phone_numbers = data['phone_numbers']
+            if isinstance(phone_numbers, list):
+                print(f"Found phone_numbers array with {len(phone_numbers)} numbers")
+                return [{"phone_number": phone} for phone in phone_numbers]
+        
         if isinstance(data, list) and all(isinstance(item, str) for item in data):
             return [{"phone_number": phone} for phone in data]
         
-        # Format 2: Array of objects with phone numbers
         elif isinstance(data, list) and all(isinstance(item, dict) for item in data):
             participants = []
             for item in data:
@@ -255,6 +259,28 @@ class APIService:
         db.session.add(participant)
         print(f"Added participant {phone_number} from API to draw {draw_id}")
         return True
+
+    def _extract_phone_number(self, participant_data):
+        """Extract phone number from participant data"""
+        phone_fields = ['phone_number', 'phone', 'msisdn', 'number', 'contact']
+        
+        for field in phone_fields:
+            if field in participant_data and participant_data[field]:
+                phone_number = str(participant_data[field])
+                return ''.join(filter(str.isdigit, phone_number))
+        return None
+
+    def _extract_draw_id(self, participant_data, default_draw_id):
+        """Extract draw ID from participant data"""
+        draw_fields = ['draw_id', 'draw', 'raffle_id', 'campaign_id']
+        
+        for field in draw_fields:
+            if field in participant_data and participant_data[field]:
+                try:
+                    return int(participant_data[field])
+                except (ValueError, TypeError):
+                    continue
+        return default_draw_id
 
 # Global API service instance
 api_service = APIService()
