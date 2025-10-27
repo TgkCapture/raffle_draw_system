@@ -66,6 +66,22 @@ class AuditLog(db.Model):
     # Relationship
     user = db.relationship('User', backref='audit_logs')
 
+class APIResponseLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    api_config_id = db.Column(db.Integer, db.ForeignKey('api_config.id'), nullable=False)
+    request_url = db.Column(db.String(500), nullable=False)
+    request_method = db.Column(db.String(10), nullable=False, default='GET')
+    response_status = db.Column(db.Integer)
+    response_headers = db.Column(db.Text)
+    response_body = db.Column(db.Text)
+    error_message = db.Column(db.Text)
+    participants_added = db.Column(db.Integer, default=0)
+    success = db.Column(db.Boolean, default=False)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationship
+    api_config = db.relationship('APIConfig', backref=db.backref('response_logs', lazy=True))
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
