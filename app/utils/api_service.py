@@ -1,10 +1,11 @@
 # app/utils/api_service.py
 import requests
 import time
+import json
 from threading import Thread, Event
 from flask import current_app
 from app import db
-from app.models import APIConfig, Participant, Draw
+from app.models import APIConfig, Participant, Draw, APIResponseLog
 from datetime import datetime
 
 class APIService:
@@ -64,6 +65,14 @@ class APIService:
         if not api_config or not api_config.is_active or not api_config.endpoint_url:
             return
         
+        # Log the API request
+        response_log = APIResponseLog(
+            api_config_id=api_config.id,
+            request_url=api_config.endpoint_url,
+            request_method='GET',
+            timestamp=datetime.utcnow()
+        )
+        
         try:
             headers = {}
             
@@ -84,28 +93,61 @@ class APIService:
             
             print(f"API Response Status: {response.status_code}")
             
+            # Log response details
+            response_log.response_status = response.status_code
+            response_log.response_headers = json.dumps(dict(response.headers))
+            
             if response.status_code == 200:
                 data = response.json()
+                response_log.response_body = json.dumps(data)
                 print(f"API Response Data: {data}")
-                self._process_api_response(data)
+                
+                # Process successful response
+                added_count = self._process_api_response(data)
+                response_log.participants_added = added_count
+                response_log.success = True
                
                 api_config.last_sync = datetime.utcnow()
+                db.session.add(response_log)
                 db.session.commit()
                 print("Successfully fetched data from API")
+                
             else:
+                # Log error response
+                try:
+                    error_data = response.json()
+                    response_log.response_body = json.dumps(error_data)
+                    response_log.error_message = f"HTTP {response.status_code}: {error_data}"
+                except:
+                    response_log.response_body = response.text
+                    response_log.error_message = f"HTTP {response.status_code}"
+                
+                response_log.success = False
+                db.session.add(response_log)
+                db.session.commit()
                 print(f"API returned status code: {response.status_code}")
                 
         except requests.exceptions.RequestException as e:
-            print(f"API request failed: {e}")
+            error_msg = f"API request failed: {e}"
+            print(error_msg)
+            response_log.error_message = error_msg
+            response_log.success = False
+            db.session.add(response_log)
+            db.session.commit()
         except Exception as e:
-            print(f"Error processing API response: {e}")
+            error_msg = f"Error processing API response: {e}"
+            print(error_msg)
+            response_log.error_message = error_msg
+            response_log.success = False
+            db.session.add(response_log)
+            db.session.commit()
     
     def _process_api_response(self, data):
         """Process the API response with flexible format handling"""
         try:
             api_config = APIConfig.query.first()
             if not api_config:
-                return
+                return 0
             
             # Get the default draw ID from configuration
             default_draw_id = api_config.default_draw_id
@@ -115,7 +157,7 @@ class APIService:
             
             if not participants_data:
                 print("No participant data found in API response")
-                return
+                return 0
             
             added_count = 0
             seen_participants = set()  # Track duplicates in this batch
@@ -125,6 +167,9 @@ class APIService:
                 phone_number = self._extract_phone_number(participant_data)
                 draw_id = self._extract_draw_id(participant_data, default_draw_id)
                 
+                if not phone_number or not draw_id:
+                    continue
+                    
                 participant_key = f"{phone_number}-{draw_id}"
                 
                 if participant_key in seen_participants:
@@ -138,10 +183,12 @@ class APIService:
             
             db.session.commit()
             print(f"Added {added_count} participants from API")
+            return added_count
             
         except Exception as e:
             db.session.rollback()
             print(f"Error processing API data: {e}")
+            return 0
     
     def _extract_participants_data(self, data):
         """Extract participants data from various API response formats"""
