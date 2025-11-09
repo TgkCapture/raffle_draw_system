@@ -239,36 +239,36 @@
             </div>
         </div>
     </div>
-</div>
 
-<!-- Modal for viewing full response details -->
-<div class="modal fade" id="responseModal" tabindex="-1" aria-labelledby="responseModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="responseModalLabel">API Response Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <strong>Request URL:</strong> <span id="detail-url" class="text-muted">-</span>
+    <!-- Modal for viewing full response details -->
+    <div class="modal fade" id="responseModal" tabindex="-1" aria-labelledby="responseModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="responseModalLabel">API Response Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="mb-3">
-                    <strong>Timestamp:</strong> <span id="detail-timestamp" class="text-muted">-</span>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <strong>Request URL:</strong> <span id="detail-url" class="text-muted">-</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Timestamp:</strong> <span id="detail-timestamp" class="text-muted">-</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Status:</strong> <span id="detail-status" class="badge">-</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Participants Added:</strong> <span id="detail-added" class="badge bg-info">0</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Response Body:</strong>
+                        <pre id="response-details" class="p-3 bg-light border rounded" style="max-height: 400px; overflow-y: auto;">Loading...</pre>
+                    </div>
                 </div>
-                <div class="mb-3">
-                    <strong>Status:</strong> <span id="detail-status" class="badge">-</span>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
-                <div class="mb-3">
-                    <strong>Participants Added:</strong> <span id="detail-added" class="badge bg-info">0</span>
-                </div>
-                <div class="mb-3">
-                    <strong>Response Body:</strong>
-                    <pre id="response-details" class="p-3 bg-light border rounded" style="max-height: 400px; overflow-y: auto;">Loading...</pre>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
