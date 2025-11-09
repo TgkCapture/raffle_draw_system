@@ -8,6 +8,7 @@ class RaffleDrawTV {
         this.winnersDrawn = 0;
         this.currentDraw = null;
         this.isDrawingInProgress = false;
+        this.isDrawComplete = false;
         
         this.initializeEventListeners();
         this.updateDrawStatus();
@@ -29,7 +30,7 @@ class RaffleDrawTV {
             const response = await fetch('/api/draws/status');
             const data = await response.json();
             
-            if (data.is_running) {
+            if (data.is_running && !this.isDrawComplete) {
                 this.isDrawing = true;
                 this.totalWinners = data.total_winners;
                 this.winnersDrawn = data.winners_drawn;
@@ -42,30 +43,20 @@ class RaffleDrawTV {
                 this.currentDraw = draws.find(d => d.id === data.current_draw);
                 this.updateDrawInfo();
                 
-                // Load existing winners
-                await this.loadExistingWinners();
+                // Show draw button if more winners to draw
+                if (this.winnersDrawn < this.totalWinners) {
+                    document.getElementById('tv-draw-winner').classList.remove('hidden');
+                    document.getElementById('tv-draw-winner').disabled = false;
+                } else {
+                    document.getElementById('tv-draw-winner').classList.add('hidden');
+                    document.getElementById('tv-stop-draw').classList.remove('hidden');
+                }
             } else {
                 this.isDrawing = false;
                 this.updateUIForInactiveDraw();
             }
         } catch (error) {
             console.error('Error updating draw status:', error);
-        }
-    }
-    
-    async loadExistingWinners() {
-        try {
-            const response = await fetch('/api/winners');
-            const winners = await response.json();
-            
-            // Filter winners for current draw
-            this.currentWinners = winners.filter(winner => 
-                winner.draw_name === this.currentDraw.name
-            ).sort((a, b) => a.position - b.position);
-            
-            this.updateWinnersList();
-        } catch (error) {
-            console.error('Error loading existing winners:', error);
         }
     }
     
@@ -81,6 +72,11 @@ class RaffleDrawTV {
     
     async startAnimation(duration = 10000) {
         const numberDisplay = document.getElementById('number-display');
+        const winnerDisplay = document.getElementById('winner-display');
+        
+        // Reset displays
+        winnerDisplay.classList.add('hidden');
+        numberDisplay.classList.remove('hidden');
         numberDisplay.classList.add('spinning');
         numberDisplay.textContent = 'DRAWING...';
         
@@ -104,11 +100,11 @@ class RaffleDrawTV {
                     
                     // Display the next phone number from the sequence
                     if (index < data.sequence.length) {
-                        numberDisplay.textContent = data.sequence[index].phone_number;
+                        numberDisplay.textContent = this.maskPhoneNumber(data.sequence[index].phone_number);
                         index++;
                     } else {
                         index = 0;
-                        numberDisplay.textContent = data.sequence[index].phone_number;
+                        numberDisplay.textContent = this.maskPhoneNumber(data.sequence[index].phone_number);
                         index++;
                     }
                 }, 80); 
@@ -142,18 +138,18 @@ class RaffleDrawTV {
                 this.totalWinners = data.winner.total_winners;
                 
                 this.updateProgressInfo();
-                this.updateWinnersList();
                 
-                // If draw is complete, show complete button
-                if (data.winner.draw_complete) {
+                // Check if draw is complete
+                if (data.winner.draw_complete || this.winnersDrawn >= this.totalWinners) {
+                    this.isDrawComplete = true;
                     document.getElementById('tv-stop-draw').classList.remove('hidden');
                     document.getElementById('tv-draw-winner').classList.add('hidden');
                 } else {
-                    // Re-enable draw button after 3 seconds
+                    // Re-enable draw button after 5 seconds to allow winner celebration
                     setTimeout(() => {
                         document.getElementById('tv-draw-winner').disabled = false;
                         this.isDrawingInProgress = false;
-                    }, 3000);
+                    }, 5000);
                 }
             } else {
                 this.showNotification('Error drawing winner: ' + data.message, 'error');
@@ -207,7 +203,7 @@ class RaffleDrawTV {
         
         numberDisplay.classList.add('hidden');
         winnerDisplay.classList.remove('hidden');
-        winnerDisplay.textContent = winner.phone_number;
+        winnerDisplay.textContent = this.maskPhoneNumber(winner.phone_number);
         winnerDisplay.classList.add('pulse');
         
         // Create confetti effect
@@ -227,6 +223,7 @@ class RaffleDrawTV {
             
             if (data.success) {
                 this.isDrawing = false;
+                this.isDrawComplete = true;
                 this.showNotification('Draw completed successfully!', 'success');
                 this.updateUIForInactiveDraw();
             }
@@ -240,29 +237,26 @@ class RaffleDrawTV {
         document.getElementById('tv-draw-winner').classList.remove('hidden');
         document.getElementById('tv-draw-winner').disabled = false;
         document.getElementById('tv-stop-draw').classList.add('hidden');
+        
+        // Reset winner display if needed
+        const winnerDisplay = document.getElementById('winner-display');
+        if (winnerDisplay.classList.contains('pulse')) {
+            setTimeout(() => {
+                winnerDisplay.classList.remove('pulse');
+            }, 3000);
+        }
     }
     
     updateUIForInactiveDraw() {
         document.getElementById('tv-draw-winner').classList.add('hidden');
         document.getElementById('tv-stop-draw').classList.add('hidden');
         document.getElementById('number-display').classList.remove('hidden');
-        document.getElementById('number-display').textContent = 'NO ACTIVE DRAW';
+        document.getElementById('number-display').textContent = 'DRAW COMPLETE';
         document.getElementById('winner-display').classList.add('hidden');
-    }
-    
-    updateWinnersList() {
-        const winnersList = document.getElementById('winners-list');
-        winnersList.innerHTML = '';
         
-        this.currentWinners.forEach(winner => {
-            const winnerItem = document.createElement('div');
-            winnerItem.className = 'winner-item';
-            winnerItem.innerHTML = `
-                <span>${winner.phone_number}</span>
-                <span class="winner-position">${winner.position}${this.getOrdinalSuffix(winner.position)}</span>
-            `;
-            winnersList.appendChild(winnerItem);
-        });
+        // Reset state for next draw
+        this.isDrawComplete = false;
+        this.isDrawingInProgress = false;
     }
     
     updateProgressInfo() {
@@ -293,22 +287,24 @@ class RaffleDrawTV {
     
     startStatusUpdates() {
         setInterval(() => {
-            this.updateDrawStatus();
+            if (!this.isDrawingInProgress && !this.isDrawComplete) {
+                this.updateDrawStatus();
+            }
         }, 3000);
     }
     
-    getOrdinalSuffix(number) {
-        if (number % 100 >= 11 && number % 100 <= 13) return 'th';
-        switch (number % 10) {
-            case 1: return 'st';
-            case 2: return 'nd';
-            case 3: return 'rd';
-            default: return 'th';
-        }
+    maskPhoneNumber(phoneNumber) {
+        if (!phoneNumber || phoneNumber.length < 6) return phoneNumber;
+        
+        // Format: +265 XXX XXX XXX
+        const prefix = phoneNumber.substring(0, 5);
+        const suffix = phoneNumber.substring(phoneNumber.length - 3);
+        
+        return `${prefix} *** *** ${suffix}`;
     }
     
     createConfetti() {
-        const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6'];
+        const colors = ['#941C26', '#000000', '#2ecc71', '#f1c40f', '#9b59b6'];
         const shapes = ['circle', 'square', 'rectangle', 'triangle', 'diamond'];
         const container = document.getElementById('confetti-container');
       
@@ -320,7 +316,6 @@ class RaffleDrawTV {
             confetti.className = `confetti ${shape}`;
             
             confetti.style.left = Math.random() * 100 + 'vw';
-            
             confetti.style.top = '-20px';
             
             // Random color
