@@ -1,0 +1,341 @@
+/* static/css/tv_display.css */
+:root {
+    --mbc-dark-red: #941C26;  /* PANTONE 7427 C */
+    --mbc-black: #000000;     /* PANTONE BLACK C */
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Montserrat', sans-serif;
+}
+
+body {
+    background: #ffffff;
+    color: var(--mbc-black);
+    min-height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Watermark layer */
+body::before {
+    content: "";
+    position: fixed;
+    bottom: 30px;
+    right: 80px;
+    width: 800px;
+    height: 800px;
+    background: url("../images/mbc-watermark.png") no-repeat;
+    background-size: contain;
+    opacity: 0.06;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.tv-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    text-align: center;
+    padding: 30px 20px;
+    position: relative;
+    z-index: 1;
+}
+
+.logo img {
+    max-height: 100px;
+    margin-bottom: 20px;
+    z-index: 2;
+}
+
+.draw-title {
+    font-size: 3rem;
+    margin-bottom: 20px;
+    font-weight: 800;
+    color: var(--mbc-dark-red);
+}
+
+.prize-amount {
+    font-size: 2.5rem;
+    color: var(--mbc-dark-red);
+    margin-bottom: 30px;
+    font-weight: 700;
+    border: 3px solid var(--mbc-dark-red);
+    padding: 10px 25px;
+    border-radius: 15px;
+    display: inline-block;
+    background: #fff;
+    z-index: 2;
+}
+
+.participant-count {
+    font-size: 1.6rem;
+    margin-bottom: 30px;
+    color: var(--mbc-black);
+    padding: 10px 20px;
+    border-radius: 20px;
+    border: 2px solid var(--mbc-dark-red);
+    display: inline-block;
+    background: #fff;
+}
+
+.progress-info {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+    color: var(--mbc-dark-red);
+    font-weight: 600;
+}
+
+.draw-container {
+    background: rgba(148, 28, 38, 0.05);
+    border-radius: 20px;
+    padding: 40px;
+    margin-bottom: 40px;
+    min-width: 700px;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    border: 2px solid rgba(0,0,0,0.1);
+    background-color: #fff;
+}
+
+.number-display {
+    font-size: 4rem;
+    font-weight: 800;
+    margin: 20px 0;
+    padding: 20px;
+    border: 2px solid var(--mbc-dark-red);
+    border-radius: 15px;
+    width: 100%;
+    background: #fff;
+    transition: all 0.3s ease;
+}
+
+.number-display.spinning {
+    animation: spin 0.1s infinite;
+    color: var(--mbc-dark-red);
+    border-color: var(--mbc-dark-red);
+}
+
+@keyframes spin {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.winner-display {
+    font-size: 3.5rem;
+    font-weight: 800;
+    color: var(--mbc-dark-red);
+    margin: 20px 0;
+    padding: 20px;
+    border: 2px solid var(--mbc-dark-red);
+    border-radius: 15px;
+    width: 100%;
+    background: #fff;
+}
+
+.winner-display.pulse {
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { 
+        transform: scale(1); 
+        box-shadow: 0 0 0 0 rgba(148, 28, 38, 0.7); 
+    }
+    70% { 
+        transform: scale(1.05); 
+        box-shadow: 0 0 0 20px rgba(148, 28, 38, 0); 
+    }
+    100% { 
+        transform: scale(1); 
+        box-shadow: 0 0 0 0 rgba(148, 28, 38, 0); 
+    }
+}
+
+.tv-btn {
+    padding: 20px 40px;
+    font-size: 1.4rem;
+    border: none;
+    border-radius: 40px;
+    cursor: pointer;
+    font-weight: 700;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+    z-index: 2;
+    background: var(--mbc-dark-red);
+    color: white;
+    margin: 0 10px;
+}
+
+.tv-btn:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: scale(1.05);
+}
+
+.tv-btn:disabled {
+    background: #666;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.tv-btn-stop {
+    background: var(--mbc-dark-red);
+}
+
+.draw-controls {
+    margin-top: 20px;
+    display: flex;
+    gap: 20px;
+}
+
+/* Confetti Container */
+#confetti-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10000; /* Highest z-index */
+    overflow: hidden;
+}
+
+/* Enhanced Confetti with Shapes */
+.confetti {
+    position: absolute;
+    opacity: 0;
+    z-index: 10000;
+    pointer-events: none;
+    top: 0;
+}
+
+.confetti.circle {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.confetti.square {
+    width: 10px;
+    height: 10px;
+}
+
+.confetti.rectangle {
+    width: 6px;
+    height: 12px;
+}
+
+.confetti.triangle {
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 10px solid var(--mbc-dark-red);
+    background: transparent !important;
+}
+
+.confetti.diamond {
+    width: 10px;
+    height: 10px;
+    transform: rotate(45deg);
+}
+
+/* Animation variations */
+.confetti {
+    animation: confetti-fall 3s ease-in forwards;
+}
+
+.confetti:nth-child(5n) {
+    animation: confetti-fall-2 3.2s ease-out forwards;
+}
+
+.confetti:nth-child(5n+1) {
+    animation: confetti-fall-3 2.8s ease-in-out forwards;
+}
+
+.confetti:nth-child(5n+2) {
+    animation: confetti-fall-4 3.5s linear forwards;
+}
+
+.confetti:nth-child(5n+3) {
+    animation: confetti-fall-5 2.9s ease-in forwards;
+}
+
+@keyframes confetti-fall {
+    0% {
+        transform: translateY(-100px) translateX(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(30px) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+@keyframes confetti-fall-2 {
+    0% {
+        transform: translateY(-100px) translateX(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(-25px) rotate(-360deg);
+        opacity: 0;
+    }
+}
+
+@keyframes confetti-fall-3 {
+    0% {
+        transform: translateY(-100px) translateX(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(15px) rotate(180deg);
+        opacity: 0;
+    }
+}
+
+@keyframes confetti-fall-4 {
+    0% {
+        transform: translateY(-100px) translateX(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(-40px) rotate(540deg);
+        opacity: 0;
+    }
+}
+
+@keyframes confetti-fall-5 {
+    0% {
+        transform: translateY(-100px) translateX(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(35px) rotate(-180deg);
+        opacity: 0;
+    }
+}
+
+/* Ensure TV container has proper z-index stacking */
+.tv-container {
+    position: relative;
+    z-index: 1;
+}
+
+/* Utility Classes */
+.hidden {
+    display: none !important;
+}
+
+/* Masked Phone Number */
+.masked-phone {
+    letter-spacing: 8px;
+}

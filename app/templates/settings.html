@@ -1,0 +1,43 @@
+<!-- app/templates/settings.html -->
+{% extends "base.html" %}
+
+{% block title %}System Settings{% endblock %}
+
+{% block page_title %}System Settings{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">System Settings</h3>
+    </div>
+    <div class="card-body">
+        <form id="system-settings">
+            <div class="form-group">
+                <label class="form-label">Company Name</label>
+                <input type="text" class="form-control" id="company-name" value="Raffle Masters MW">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Brand Color</label>
+                <input type="color" class="form-control" id="brand-color" value="#2c3e50">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Logo</label>
+                <input type="file" class="form-control" id="logo-upload" accept="image/*">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Default Prize Amount (MWK)</label>
+                <input type="number" class="form-control" id="default-prize" value="100000" step="1000">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Audit Log Retention (days)</label>
+                <input type="number" class="form-control" id="audit-retention" min="30" value="365">
+            </div>
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+{% endblock %}

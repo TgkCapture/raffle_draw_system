@@ -1,0 +1,418 @@
+<!-- app/templates/participants.html -->
+{% extends "base.html" %}
+
+{% block title %}Participants Management{% endblock %}
+
+{% block page_title %}Participants Management{% endblock %}
+
+{% block content %}
+<div class="tabs">
+    <div class="tab active" data-subtab="upload">Upload Participants</div>
+    <div class="tab" data-subtab="api">API Configuration</div>
+    <div class="tab" data-subtab="view">View Participants</div>
+    <div class="tab" data-subtab="logs">API Response Logs</div>
+</div>
+
+<!-- Upload Tab -->
+<div class="subtab-content active" id="upload">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Upload Participants (CSV/Excel)</h3>
+        </div>
+        <div class="card-body">
+            <form id="upload-form">
+                <div class="form-group">
+                    <label class="form-label">Select File</label>
+                    <input type="file" class="form-control" id="participant-file" accept=".csv,.xlsx,.xls" required>
+                    <small class="form-text text-muted">Supported formats: CSV, Excel (.xlsx, .xls)</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Select Draw</label>
+                    <select class="form-control" id="draw-select" required>
+                        <option value="">Select a draw...</option>
+                        {% for draw in draws %}
+                        <option value="{{ draw.id }}">{{ draw.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Upload Participants</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- API Configuration Tab -->
+<div class="subtab-content" id="api">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">API Endpoint Configuration</h3>
+        </div>
+        <div class="card-body">
+            <form id="api-config-form">
+                <div class="form-group">
+                    <label class="form-label">API Endpoint URL</label>
+                    <input type="url" class="form-control" id="api-endpoint" 
+                           value="{{ api_config.endpoint_url if api_config else '' }}" 
+                           placeholder="https://api.example.com/participants" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Authentication Method</label>
+                    <select class="form-control" id="auth-method">
+                        <option value="none" {% if api_config and api_config.auth_method == 'none' %}selected{% endif %}>None</option>
+                        <option value="api_key" {% if api_config and api_config.auth_method == 'api_key' %}selected{% endif %}>API Key</option>
+                        <option value="basic_auth" {% if api_config and api_config.auth_method == 'basic_auth' %}selected{% endif %}>Basic Auth</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="token-field" style="display: {% if api_config and api_config.auth_method != 'none' %}block{% else %}none{% endif %};">
+                    <label class="form-label">Token/API Key</label>
+                    <input type="password" class="form-control" id="api-token" 
+                           value="{{ api_config.api_key if api_config else '' }}"
+                           placeholder="Enter your API key or token">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Default Draw</label>
+                    <select class="form-control" id="default-draw" required>
+                        <option value="">Select default draw...</option>
+                        {% for draw in draws %}
+                        <option value="{{ draw.id }}" {% if api_config and api_config.default_draw_id == draw.id %}selected{% endif %}>
+                            {{ draw.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Refresh Interval (minutes)</label>
+                    <input type="number" class="form-control" id="refresh-interval" 
+                           value="{{ api_config.refresh_interval if api_config else 5 }}" min="1" max="1440" required>
+                    <small class="form-text text-muted">How often to check for new participants (1-1440 minutes)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-check-label">
+                        <input type="checkbox" id="api-active" {% if api_config and api_config.is_active %}checked{% endif %}>
+                        Enable API Sync
+                    </label>
+                </div>
+                
+                <div class="button-group">
+                    <button type="submit" class="btn btn-primary">Save Configuration</button>
+                    <button type="button" class="btn btn-info" id="test-api">Test Connection</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3 class="card-title">API Service Control</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label class="form-label">Service Status:</label>
+                <span id="api-status" class="status-stopped">STOPPED</span>
+            </div>
+            <div class="button-group">
+                <button type="button" class="btn btn-success" id="start-api-btn">Start Service</button>
+                <button type="button" class="btn btn-danger" id="stop-api-btn" disabled>Stop Service</button>
+                <button type="button" class="btn btn-warning" id="test-connection-btn">Test Connection</button>
+            </div>
+            
+            {% if api_config and api_config.last_sync %}
+            <div class="mt-3">
+                <small class="text-muted">
+                    Last Sync: {{ api_config.last_sync.strftime('%Y-%m-%d %H:%M:%S') }}
+                </small>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- View Participants Tab -->
+<div class="subtab-content" id="view">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Participants List</h3>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label class="form-label">Select Draw to View Participants</label>
+                <select class="form-control" id="view-draw-select">
+                    <option value="">Select a draw...</option>
+                    {% for draw in draws %}
+                    <option value="{{ draw.id }}">{{ draw.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Phone Number</th>
+                            <th>Date Added</th>
+                            <th>Source</th>
+                            <th>Status</th>
+                            <th>Draw</th>
+                        </tr>
+                    </thead>
+                    <tbody id="participants-table">
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">Select a draw to view participants</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div id="participants-summary" class="mt-3" style="display: none;">
+                <div class="alert alert-info">
+                    <strong>Summary:</strong>
+                    <span id="total-participants">0</span> participants found
+                    (<span id="verified-count">0</span> verified, 
+                    <span id="pending-count">0</span> pending)
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- API Response Logs Tab -->
+<div class="subtab-content" id="logs">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">API Response History</h3>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="refresh-logs">
+                Refresh
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Status</th>
+                            <th>Participants Added</th>
+                            <th>Message</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="api-logs-table">
+                        {% for log in api_response_logs %}
+                        <tr class="{% if log.success %}table-success{% else %}table-danger{% endif %}">
+                            <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            <td>
+                                <span class="badge {% if log.response_status == 200 %}bg-success{% else %}bg-danger{% endif %}">
+                                    {{ log.response_status or 'N/A' }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-info">{{ log.participants_added }}</span>
+                            </td>
+                            <td>
+                                {% if log.error_message %}
+                                    {{ log.error_message|truncate(50) }}
+                                {% else %}
+                                    <span class="text-success">Success</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-info view-response-btn" 
+                                        data-log-id="{{ log.id }}"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#responseModal">
+                                    View Details
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted">No API response logs found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for viewing full response details -->
+    <div class="modal fade" id="responseModal" tabindex="-1" aria-labelledby="responseModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="responseModalLabel">API Response Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <strong>Request URL:</strong> <span id="detail-url" class="text-muted">-</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Timestamp:</strong> <span id="detail-timestamp" class="text-muted">-</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Status:</strong> <span id="detail-status" class="badge">-</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Participants Added:</strong> <span id="detail-added" class="badge bg-info">0</span>
+                    </div>
+                    <div class="mb-3">
+                        <strong>Response Body:</strong>
+                        <pre id="response-details" class="p-3 bg-light border rounded" style="max-height: 400px; overflow-y: auto;">Loading...</pre>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.tabs {
+    display: flex;
+    border-bottom: 2px solid #dee2e6;
+    margin-bottom: 20px;
+}
+
+.tab {
+    padding: 12px 24px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    font-weight: 500;
+    color: #6c757d;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.tab:hover {
+    color: #495057;
+    background-color: #f8f9fa;
+}
+
+.tab.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+    background-color: #f8f9fa;
+}
+
+.subtab-content {
+    display: none;
+}
+
+.subtab-content.active {
+    display: block;
+}
+
+.status-running {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.status-stopped {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.status-active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-inactive {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    animation: slideInRight 0.3s ease;
+}
+
+.notification-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-radius: 8px;
+    color: white;
+    min-width: 300px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.notification-success {
+    background-color: #28a745;
+}
+
+.notification-error {
+    background-color: #dc3545;
+}
+
+.notification-warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.notification-info {
+    background-color: #17a2b8;
+}
+
+.notification-close {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 18px;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/participants.js') }}"></script>
+{% endblock %}
