@@ -1,0 +1,13 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5025:5025"
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=1234567890abcdef
+      - DATABASE_URL=sqlite:///raffle_system.db
+    volumes:
+      - ./uploads:/app/uploads
+      - ./instance:/app/instance
+    restart: unless-stopped
