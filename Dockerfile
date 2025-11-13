@@ -21,5 +21,5 @@ RUN mkdir -p uploads
 
 EXPOSE 5025
 
-# Run the application
-CMD ["python", "run.py"]
+# Create database and then run the application
+CMD ["sh", "-c", "python create_database.py && python run.py"]
