@@ -1,4 +1,4 @@
-venv\
+venv/
 uploads/
 app/__pycache__/
 __pycache__/
