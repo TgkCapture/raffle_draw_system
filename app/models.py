@@ -11,6 +11,11 @@ class User(UserMixin, db.Model):
     role = db.Column(db.String(20), default='admin', index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
+    __table_args__ = (
+        # Index for role-based queries
+        db.Index('ix_user_role_created', 'role', 'created_at'),
+    )
+
 class Draw(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
@@ -27,6 +32,13 @@ class Draw(db.Model):
     participants = db.relationship('Participant', backref='draw', lazy=True, cascade='all, delete-orphan')
     winners = db.relationship('Winner', backref='draw', lazy=True, cascade='all, delete-orphan')
 
+    __table_args__ = (
+        # Composite indexes for common draw queries
+        db.Index('ix_draw_status_created', 'status', 'created_at'),
+        db.Index('ix_draw_status_scheduled', 'status', 'scheduled_for'),
+        db.Index('ix_draw_completed_status', 'completed_at', 'status'),
+    )
+
 class Participant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     phone_number = db.Column(db.String(20), nullable=False, index=True)
@@ -38,6 +50,13 @@ class Participant(db.Model):
     # same phone can't participate twice in same draw
     __table_args__ = (
         db.UniqueConstraint('draw_id', 'phone_number', name='unique_participant_per_draw'),
+        # Composite indexes for common participant queries
+        db.Index('ix_participant_draw_verified', 'draw_id', 'is_verified'),
+        db.Index('ix_participant_phone_draw', 'phone_number', 'draw_id'),
+        db.Index('ix_participant_source', 'source'),
+        db.Index('ix_participant_added_source', 'added_at', 'source'),
+        db.Index('ix_participant_draw_added', 'draw_id', 'added_at'),
+        db.Index('ix_participant_verified_draw', 'is_verified', 'draw_id', 'added_at'),
     )
 
 class Winner(db.Model):
@@ -53,6 +72,12 @@ class Winner(db.Model):
     # same position can't be awarded twice in same draw
     __table_args__ = (
         db.UniqueConstraint('draw_id', 'position', name='unique_position_per_draw'),
+        # Composite indexes for common winner queries
+        db.Index('ix_winner_draw_position', 'draw_id', 'position'),
+        db.Index('ix_winner_draw_participant', 'draw_id', 'participant_id'),
+        db.Index('ix_winner_draw_won_at', 'draw_id', 'won_at'),
+        db.Index('ix_winner_position_won_at', 'position', 'won_at'),
+        db.Index('ix_winner_participant_draw', 'participant_id', 'draw_id'),
     )
 
 class APIConfig(db.Model):
@@ -65,6 +90,12 @@ class APIConfig(db.Model):
     last_sync = db.Column(db.DateTime, index=True)
     default_draw_id = db.Column(db.Integer, db.ForeignKey('draw.id'), nullable=True)
 
+    __table_args__ = (
+        # Index for active configurations
+        db.Index('ix_api_config_active_sync', 'is_active', 'last_sync'),
+        db.Index('ix_api_config_auth_active', 'auth_method', 'is_active'),
+    )
+
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), index=True)
@@ -75,6 +106,15 @@ class AuditLog(db.Model):
     
     # Relationship
     user = db.relationship('User', backref='audit_logs')
+
+    __table_args__ = (
+        # Composite indexes for audit log queries
+        db.Index('ix_audit_log_timestamp', 'timestamp'),
+        db.Index('ix_audit_log_user_action', 'user_id', 'action'),
+        db.Index('ix_audit_log_action_timestamp', 'action', 'timestamp'),
+        db.Index('ix_audit_log_user_timestamp', 'user_id', 'timestamp'),
+        db.Index('ix_audit_log_ip_timestamp', 'ip_address', 'timestamp'),
+    )
 
 class APIResponseLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -91,6 +131,17 @@ class APIResponseLog(db.Model):
     
     # Relationship
     api_config = db.relationship('APIConfig', backref=db.backref('response_logs', lazy=True))
+
+    __table_args__ = (
+        # Composite indexes for API log analysis
+        db.Index('ix_api_log_timestamp', 'timestamp'),
+        db.Index('ix_api_log_success', 'success'),
+        db.Index('ix_api_log_config', 'api_config_id', 'timestamp'),
+        db.Index('ix_api_log_status_timestamp', 'response_status', 'timestamp'),
+        db.Index('ix_api_log_success_timestamp', 'success', 'timestamp'),
+        db.Index('ix_api_log_config_success', 'api_config_id', 'success', 'timestamp'),
+        db.Index('ix_api_log_participants_added', 'participants_added', 'timestamp'),
+    )
 
 @login_manager.user_loader
 def load_user(user_id):
