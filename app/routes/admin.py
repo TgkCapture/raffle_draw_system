@@ -4,7 +4,7 @@ from flask_login import login_required, current_user
 from app import db
 from app.models import Draw, AuditLog, Winner, Participant
 from app.utils.security import admin_required, audit_log
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -131,3 +131,43 @@ def get_stats():
             'total_winners': 0,
             'total_prizes': 0
         })
+
+@admin_bp.route('/api/health/database')
+def database_health():
+    """Check database connectivity and performance"""
+    try:
+        from app import db
+        from sqlalchemy import text
+        
+        # Test connection
+        start_time = time.time()
+        result = db.session.execute(text('SELECT 1')).scalar()
+        query_time = time.time() - start_time
+        
+        # Get basic stats
+        table_counts = {}
+        tables = ['draw', 'participant', 'winner', 'user', 'api_config', 'audit_log', 'api_response_log']
+        
+        for table in tables:
+            try:
+                count = db.session.execute(text(f'SELECT COUNT(*) FROM {table}')).scalar()
+                table_counts[table] = count
+            except Exception as e:
+                table_counts[table] = f"Error: {str(e)}"
+        
+        return jsonify({
+            'status': 'healthy',
+            'database_connected': True,
+            'query_response_time': round(query_time, 4),
+            'table_counts': table_counts,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Database health check failed: {e}")
+        return jsonify({
+            'status': 'unhealthy',
+            'database_connected': False,
+            'error': str(e),
+            'timestamp': datetime.utcnow().isoformat()
+        }), 500    
