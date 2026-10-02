@@ -86,31 +86,32 @@ class DrawEngine:
             return None
         
         try:
-            # Get fresh data from database to avoid detached instance issues
+            # Use new session for this operation
+            from app import db
+            from app.models import Draw, Participant, Winner
+            
             draw = Draw.query.get(self.current_draw['id'])
             if not draw:
                 return None
             
-            # Get participants who haven't won yet
-            winner_participants = Participant.query.filter(
-                Participant.draw_id == self.current_draw['id'],
-                Participant.is_verified == True
-            ).filter(
-                ~Participant.id.in_(
-                    db.session.query(Winner.participant_id).filter(
-                        Winner.draw_id == self.current_draw['id']
-                    )
-                )
-            ).all()
+            # Use subquery for better performance
+            existing_winner_subquery = db.session.query(Winner.participant_id).filter(
+                Winner.draw_id == self.current_draw['id']
+            ).subquery()
             
-            if not winner_participants:
+            # Get random participant who hasn't won yet
+            winner = Participant.query.filter(
+                Participant.draw_id == self.current_draw['id'],
+                Participant.is_verified == True,
+                ~Participant.id.in_(existing_winner_subquery)
+            ).order_by(db.func.random()).first()
+            
+            if not winner:
                 return None
             
-            # Select random winner
-            winner = random.choice(winner_participants)
             self.winners_drawn += 1
             
-            # Save winner to database
+            # Save winner
             new_winner = Winner(
                 draw_id=self.current_draw['id'],
                 participant_id=winner.id,
@@ -118,7 +119,7 @@ class DrawEngine:
             )
             db.session.add(new_winner)
             
-            # Update draw status if all winners drawn
+            # Update draw status
             if self.winners_drawn >= self.total_winners:
                 draw.status = 'completed'
                 draw.completed_at = datetime.utcnow()
@@ -137,6 +138,8 @@ class DrawEngine:
             db.session.rollback()
             current_app.logger.error(f"Error drawing winner: {e}")
             return None
+        finally:
+            db.session.remove()
     
     def get_animation_sequence(self, duration=10):
         """Generate animation sequence using actual participants"""
